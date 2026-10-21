@@ -46,8 +46,9 @@ a{color:var(--ink)}
 .topbar img{height:34px;width:auto;display:block}
 .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:500}
 .display{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;letter-spacing:.005em}
-.wrap{max-width:1240px;margin:0 auto;padding:0 16px 48px}
-header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;flex-wrap:wrap}
+.wrap{max-width:1360px;margin:0 auto;padding:0 28px 72px}
+@media (max-width:700px){.wrap{padding:0 16px 48px}}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 0;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:12px}
 .brand .divider{width:1px;height:34px;background:rgba(255,255,255,.18);margin:0 4px}
 .brand h1{margin:0;font-size:26px;font-weight:500;line-height:1.1;color:#fff}
@@ -58,27 +59,33 @@ button.ghost{border:1px solid var(--gold-2);background:transparent;color:var(--g
 button.ghost:hover{background:rgba(212,183,122,.12)}
 .filters button.ghost{color:var(--ink);border-color:var(--gold-2);background:var(--gold)}
 .filters button.ghost:hover{background:#dcc48f}
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px 0 18px;position:sticky;top:0;background:var(--page);z-index:5;border-bottom:1px solid var(--grid);margin-bottom:16px}
-.filters label{display:flex;flex-direction:column;gap:4px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-.filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:8px 32px 8px 10px;min-width:160px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.filters{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;padding:22px 0;position:sticky;top:0;background:var(--page);z-index:5;border-bottom:1px solid var(--grid);margin-bottom:32px}
+.filters label{display:flex;flex-direction:column;gap:8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:11px 36px 11px 14px;min-width:180px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat}
 .filters .reset{align-self:flex-end}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
-.grid{display:grid;gap:14px}
+.grid{display:grid;gap:24px}
+.section{margin-top:32px}
+@media (max-width:700px){.grid{gap:16px}.section{margin-top:22px}}
 .kpis{grid-template-columns:repeat(4,1fr)}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
-.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px 20px;box-shadow:var(--shadow)}
 .tile .l{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
-.tile .v{font-family:"Cormorant Garamond",Georgia,serif;font-size:34px;font-weight:500;line-height:1.1;margin-top:6px;font-variant-numeric:lining-nums}
-.tile .d{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.tile .v{font-family:"Cormorant Garamond",Georgia,serif;font-size:38px;font-weight:500;line-height:1.1;margin-top:12px;font-variant-numeric:lining-nums}
+.tile .d{font-size:13px;color:var(--ink-2);margin-top:8px}
 .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px 30px;box-shadow:var(--shadow);min-width:0}
+@media (max-width:700px){.card{padding:20px 18px}}
 .card h3{color:var(--ink)}
-.card h2{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:500;line-height:1.15}
-.card .hint{margin:2px 0 12px;color:var(--muted);font-size:13px}
-.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.two{grid-template-columns:3fr 2fr}
+.card h2{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:27px;font-weight:500;line-height:1.15}
+.card .hint{margin:6px 0 22px;color:var(--muted);font-size:13.5px;max-width:62ch}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.two{grid-template-columns:3fr 2fr;align-items:start}
+.halves{grid-template-columns:1fr 1fr;align-items:start}
+@media (max-width:1000px){.halves{grid-template-columns:1fr}}
 @media (max-width:900px){.two{grid-template-columns:1fr}}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);padding-top:6px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 svg{display:block;width:100%;height:auto;overflow:visible}
 .grid-line{stroke:var(--grid);stroke-width:1}
@@ -92,8 +99,11 @@ rect.bar:hover,rect.bar:focus{opacity:.78;outline:none}
 .tip .row{display:flex;justify-content:space-between;gap:14px}
 .tip .k{display:inline-flex;align-items:center;gap:6px;opacity:.85}
 .tip .k i{width:12px;height:2px;border-radius:1px;display:inline-block}
+.table-wrap{overflow-x:auto;margin:0 -8px;padding:0 8px}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
-th,td{padding:8px 8px;text-align:left;border-bottom:1px solid var(--grid);vertical-align:middle}
+td:first-child,th:first-child{white-space:nowrap;padding-left:4px}
+th,td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--grid);vertical-align:middle}
+th{padding-top:4px;padding-bottom:10px}
 th{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.14em;white-space:nowrap}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 td.bar-cell{width:30%;min-width:120px}
@@ -102,22 +112,25 @@ td.bar-cell{width:30%;min-width:120px}
 .inline-bar i.c{background:var(--s2)}
 tr.total td{font-weight:600;border-top:2px solid var(--axis)}
 tr.other td{color:var(--ink-2)}
-.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--ink-2)}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--ink-2)}
 .pill.good{background:var(--ok-bg);color:var(--ok)}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
 .pill.crit{background:var(--bad-bg);color:var(--bad)}
-.stack{display:flex;height:28px;border-radius:7px;overflow:hidden;gap:2px;background:var(--surface)}
+.stack{display:flex;height:30px;margin-top:6px;border-radius:7px;overflow:hidden;gap:2px;background:var(--surface)}
 .stack div{min-width:2px;height:100%;cursor:pointer}
-.stack-labels{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.stack-labels{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:18px 20px;margin-top:22px}
 .stack-labels .it{display:flex;gap:8px;align-items:flex-start;font-size:13px}
 .stack-labels .it .swatch{margin-top:5px}
-.stack-labels .it b{display:block;font-size:16px;font-weight:600}
+.stack-labels .it b{display:block;font-size:20px;font-weight:500;font-family:"Cormorant Garamond",Georgia,serif;line-height:1.1;margin-bottom:2px}
 .stack-labels .it small{color:var(--muted)}
-.note{font-size:13px;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:10px 14px;margin-top:14px}
+.note{font-size:13.5px;line-height:1.55;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:14px 18px;margin-top:22px}
 .note ul{margin:6px 0 0 18px;padding:0}
-footer{color:var(--muted);font-size:12.5px;margin-top:24px}
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 32px}
+.gloss div{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.gloss b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-height:1.55}
 .empty{color:var(--muted);padding:30px;text-align:center}
-.toggle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:none;border-bottom:1px solid var(--gold-2);cursor:pointer;padding:0 0 2px;font-family:inherit}
+.toggle{margin-top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:none;border-bottom:1px solid var(--gold-2);cursor:pointer;padding:0 0 2px;font-family:inherit}
 .vis-hidden{position:absolute;left:-9999px}
 .hdr-right{display:flex;align-items:center;gap:14px}
 @media (max-width:700px){.meta{display:none}.brand h1{font-size:22px}}
@@ -154,8 +167,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
 
   <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
 
-  <div style="height:14px"></div>
-  <section class="grid two">
+  <section class="grid two section">
     <div class="card">
       <div class="card-head">
         <div><h2>Billed vs. collected by month</h2><p class="hint">By date of service. Collected = all payments posted on those claims (insurance + patient).</p></div>
@@ -173,8 +185,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     </div>
   </section>
 
-  <div style="height:14px"></div>
-  <section class="grid two">
+  <section class="grid two section">
     <div class="card">
       <div class="card-head">
         <div><h2>Open balance by age</h2><p class="hint">Balance still due on claims, grouped by days since the date of service (as of the report date).</p></div>
@@ -189,42 +200,39 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
   </section>
 
 
-  <div style="height:14px"></div>
-  <section class="card" id="agingSection" hidden>
+  <section class="card section" id="agingSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Accounts receivable</div><h2>Outstanding balances by age (eCW aging report)</h2><p class="hint" id="agingHint"></p></div>
       <div class="legend"><span class="pill" id="agingScope">Whole practice · not affected by the filters above</span></div>
     </div>
-    <div class="grid kpis" id="agingKpis" style="margin-bottom:16px"></div>
+    <div class="grid kpis" id="agingKpis" style="margin:18px 0 28px"></div>
     <div class="grid two">
       <div>
-        <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">Balance by age bucket</h3>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Balance by age bucket</h3>
         <p class="hint">Aged by claim date, as eCW reports it.</p>
         <div id="agingChart"></div>
       </div>
       <div>
-        <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">Who owes it</h3>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Who owes it</h3>
         <p class="hint">Patient accounts grouped by the size of their balance. No names are shown.</p>
         <div id="agingBands"></div>
         <div class="note" id="agingConc"></div>
       </div>
     </div>
-    <div style="height:18px"></div>
-    <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">By service</h3>
+    <div style="height:28px"></div>
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By service</h3>
     <p class="hint">Top services by outstanding balance; the rest are folded into “Other”.</p>
     <div id="agingVisits"></div>
     <div class="note" id="agingNote"></div>
   </section>
-  <div style="height:14px"></div>
-  <section class="card">
+  <section class="card section">
     <div class="card-head">
       <div><h2>By payer</h2><p class="hint">Sorted by billed amount. Collection rate = collected ÷ (billed − contractual adjustments).</p></div>
     </div>
     <div id="payers"></div>
   </section>
 
-  <div style="height:14px"></div>
-  <section class="grid two">
+  <section class="grid halves section">
     <div class="card">
       <h2>By service / visit type</h2>
       <p class="hint">Top services by billed amount; the rest are folded into “Other”.</p>
@@ -237,12 +245,28 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     </div>
   </section>
 
-  <div style="height:14px"></div>
-  <section class="card">
+  <section class="card section">
     <div class="card-head">
       <div><h2>Claims by eCW status code</h2><p class="hint">Status codes exactly as exported. Meaning of each code to be confirmed with the billing team.</p></div>
     </div>
     <div id="statuses"></div>
+  </section>
+
+  <section class="card section">
+    <h2>How to read these numbers</h2>
+    <p class="hint">Short definitions of every figure on this page.</p>
+    <div class="gloss">
+      <div><b>Billed</b>Total charges sent out for the claims in the selection, at the clinic's full fee schedule, before any insurer discount.</div>
+      <div><b>Collected</b>Money actually received on those claims from insurers and patients combined.</div>
+      <div><b>Contractual adjustments</b>The part of the fee that insurers never pay because the contract rate is lower than the fee schedule. Not a loss, it was never collectible.</div>
+      <div><b>Write-offs</b>Amounts the clinic chose to give up: denials not appealed, courtesy discounts, small balances, timely-filing losses. This is real money lost.</div>
+      <div><b>Collection rate</b>Collected ÷ (Billed − Contractual adjustments). The share of what was realistically collectible that has actually come in.</div>
+      <div><b>Balance still due</b>Sum of the open balances on claims that still owe money. The amount still being worked.</div>
+      <div><b>Net change in A/R</b>Billed − Collected − Contractual − Write-offs. How much the receivables balance grew over the period, net of credits.</div>
+      <div><b>Open balance by age</b>Balance still due, grouped by how long ago the service happened. The older the bucket, the harder it is to collect.</div>
+      <div><b>Outstanding (A/R)</b>The official total of every unpaid balance in eCW on the report date, aged by claim date. The number to quote as "what we are owed".</div>
+      <div><b>Claim status code</b>The workflow state eCW assigned to the claim (submitted, paid, denied, patient balance, etc.). Meaning of each code to be confirmed with billing.</div>
+    </div>
   </section>
 
   <footer id="foot"></footer>
@@ -324,7 +348,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
   const niceMax = v => { if(v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; const m = n<=1?1:n<=2?2:n<=2.5?2.5:n<=4?4:n<=5?5:n<=7.5?7.5:10; return m*p; };
   function columnChart(container, cats, series, opts={}){
     container.innerHTML='';
-    const W = 640, H = opts.height||260, pad={l:46,r:8,t:12,b:34};
+    const W = 640, H = opts.height||300, pad={l:50,r:8,t:16,b:36};
     const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
     const max = niceMax(Math.max(1,...series.flatMap(s=>s.values)));
     const svg = h('svg',{svg:1,viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':opts.label||''});
@@ -357,11 +381,12 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
 
   function table(container, cols, rows, opts={}){
     container.innerHTML='';
+    const wrap=h('div',{class:'table-wrap'}); container.append(wrap);
     const t=h('table'); const thead=h('thead'); const tr=h('tr');
     cols.forEach(c=>tr.append(h('th',{class:c.num?'n':'' ,text:c.label}))); thead.append(tr); t.append(thead);
     const tb=h('tbody');
     rows.forEach(r=>{ const trr=h('tr',{class:r._class||''}); cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
-    t.append(tb); container.append(t);
+    t.append(tb); wrap.append(t);
     if(opts.empty && !rows.length) container.append(h('div',{class:'empty',text:opts.empty}));
   }
   const inlineBar = (v, max, cls) => { const d=h('div',{class:'inline-bar'}); d.append(h('i',{class:cls||'',style:`width:${max>0?Math.max(0,Math.min(100,v/max*100)):0}%`})); return d; };
@@ -420,7 +445,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     const totalDue = buckets.reduce((a,b)=>a+b,0);
     if(totalDue>0){
       const mx = buckets.indexOf(Math.max(...buckets));
-      columnChart(el('aging'), D.agingBuckets, [{name:'Balance due',values:buckets,color:S.s1}], {label:'Open balance by age', height:240, maxLabels:6, extra:ci=>[['Share of open balance',fmt.pct(buckets[ci]/totalDue)],['Claims with balance', fmt.int(ga.has(ci)?ga.get(ci).reduce((a,c)=>a+(c[M.balanceDue]>0?c[M.claims]:0),0):0)]], directLabel:{ci:mx,si:0,text:fmt.usdc(buckets[mx])}});
+      columnChart(el('aging'), D.agingBuckets, [{name:'Balance due',values:buckets,color:S.s1}], {label:'Open balance by age', height:280, maxLabels:6, extra:ci=>[['Share of open balance',fmt.pct(buckets[ci]/totalDue)],['Claims with balance', fmt.int(ga.has(ci)?ga.get(ci).reduce((a,c)=>a+(c[M.balanceDue]>0?c[M.claims]:0),0):0)]], directLabel:{ci:mx,si:0,text:fmt.usdc(buckets[mx])}});
       const over90 = buckets.slice(3).reduce((a,b)=>a+b,0);
       el('aging').append(h('div',{class:'note',html:`<strong>${fmt.usd(totalDue)}</strong> is still due in this selection. <strong>${fmt.pct(over90/totalDue)}</strong> of it (${fmt.usd(over90)}) is on services older than 90 days.`}));
     } else el('aging').innerHTML='<div class="empty">No open balance in this selection.</div>';
@@ -496,7 +521,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     el('agingKpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:k.l}),h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('agingKpis').append(t); });
     const vals=[0,1,2,3,4,5,6].map(b); const mx=vals.indexOf(Math.max(...vals));
     const labels=A.buckets.map(x=>x.replace(' Days','').replace('> 180','Over 180').replace(/ - /g,'–')+' days');
-    columnChart(el('agingChart'), labels, [{name:'Outstanding',values:vals,color:S.s1}], {label:'Outstanding balance by age bucket',height:240,maxLabels:7,title:ci=>labels[ci],extra:ci=>[['Share of outstanding',fmt.pct(vals[ci]/total)]],directLabel:{ci:mx,si:0,text:fmt.usdc(vals[mx])}});
+    columnChart(el('agingChart'), labels, [{name:'Outstanding',values:vals,color:S.s1}], {label:'Outstanding balance by age bucket',height:280,maxLabels:7,title:ci=>labels[ci],extra:ci=>[['Share of outstanding',fmt.pct(vals[ci]/total)]],directLabel:{ci:mx,si:0,text:fmt.usdc(vals[mx])}});
     // bands
     const bands=A.patients.bands; const maxBand=Math.max(...bands.map(x=>x.balance));
     table(el('agingBands'), [
