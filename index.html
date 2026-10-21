@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Helixona Billing</title>
 <meta name="description" content="Claim-level financial overview for Helixona, built from the eCW 361.05 Financial Analysis export.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,6 +39,7 @@
   --shadow:none;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--page);color:var(--ink);font-family:"Jost","Futura",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.45}
 a{color:var(--ink)}
 .topbar{background:var(--black);color:var(--black-ink)}
@@ -65,6 +66,7 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 .filters .reset{align-self:flex-end}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
 .grid{display:grid;gap:24px}
+.grid>*{min-width:0}
 .section{margin-top:32px}
 @media (max-width:700px){.grid{gap:16px}.section{margin-top:22px}}
 .kpis{grid-template-columns:repeat(4,1fr)}
@@ -131,6 +133,88 @@ tr.other td{color:var(--ink-2)}
 footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-height:1.55}
 .empty{color:var(--muted);padding:30px;text-align:center}
 .toggle{margin-top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:none;border-bottom:1px solid var(--gold-2);cursor:pointer;padding:0 0 2px;font-family:inherit}
+button.ghost.gold{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+button.ghost.gold:hover{background:#dcc48f}
+.modal-bg{position:fixed;inset:0;background:rgba(5,5,5,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);color:var(--ink);border-radius:16px;width:min(820px,100%);box-shadow:0 30px 80px rgba(0,0,0,.35);border:1px solid var(--border);overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 28px 18px;border-bottom:1px solid var(--grid);background:var(--black);color:#fff}
+.modal-head h2{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:26px;font-weight:500}
+.modal-head .sub{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:2px}
+.modal-body{padding:24px 28px 28px;min-height:200px}
+.modal-foot{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 28px 20px;border-top:1px solid var(--grid);font-size:12.5px;color:var(--muted)}
+.modal-foot .actions{display:flex;gap:10px;align-items:center}
+.modal-foot select{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink)}
+.ai-status{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin-bottom:14px}
+.ai-status .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+.ai-out{font-size:15px;line-height:1.6;color:var(--ink)}
+.ai-out h3{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;font-weight:600;margin:22px 0 8px}
+.ai-out h3:first-child{margin-top:0}
+.ai-out p{margin:0 0 12px}
+.ai-out ul,.ai-out ol{margin:0 0 12px 22px;padding:0}
+.ai-out li{margin:4px 0}
+.ai-out strong{font-weight:600}
+.ai-out table{margin:8px 0 14px;font-size:13.5px}
+.ai-setup{background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:16px 18px;font-size:13.5px;color:var(--ink-2);line-height:1.55}
+.ai-setup input{width:100%;margin:10px 0;font:inherit;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink)}
+.ai-setup .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ai-err{color:var(--bad);background:var(--bad-bg);border-radius:8px;padding:10px 14px;font-size:13.5px;margin-top:12px}
+.btn-x{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;line-height:1}
+
+/* ---------- mobile ---------- */
+@media (max-width:760px){
+  header.top{padding:14px 0;gap:12px}
+  .brand{gap:10px}
+  .topbar img{height:24px}
+  .brand .divider{height:26px}
+  .brand h1{font-size:19px}
+  .eyebrow{font-size:10px}
+  .hdr-right{width:100%;justify-content:space-between;gap:8px}
+  .meta{display:none}
+  button.ghost{padding:8px 12px;font-size:10.5px;letter-spacing:.1em}
+  .filters{position:static;padding:14px 0 16px;margin-bottom:20px;gap:10px}
+  .filters label{flex:1 1 calc(50% - 5px);min-width:0}
+  .filters select{min-width:0;width:100%}
+  .filters .reset{flex:1 1 100%}
+  .filters .scope{margin-left:0;flex:1 1 100%;font-size:12px}
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .tile{padding:14px 14px 12px;border-radius:12px}
+  .tile .l{font-size:10px;letter-spacing:.1em}
+  .tile .v{font-size:26px;margin-top:8px}
+  .tile .d{font-size:12px;margin-top:4px}
+  .card{padding:18px 16px 20px;border-radius:12px}
+  .card h2{font-size:22px}
+  .card .hint{margin:4px 0 14px;font-size:13px}
+  .card-head{margin-bottom:0}
+  .legend{gap:12px;padding-top:0}
+  .grid{gap:14px}
+  .section{margin-top:14px}
+  .stack-labels{grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:16px}
+  .stack-labels .it b{font-size:18px}
+  table{font-size:12.5px}
+  th,td{padding:9px 7px}
+  td.bar-cell{min-width:90px}
+  .note{padding:12px 14px;font-size:13px;margin-top:16px}
+  .tick{font-size:13px}
+  .dl{font-size:13px}
+  .gloss{grid-template-columns:1fr}
+  .modal-bg{padding:0;align-items:stretch;background:var(--surface)}
+  .modal{width:100%;min-height:100%;border-radius:0;border:0;display:flex;flex-direction:column;box-shadow:none}
+  .modal-body{flex:0 0 auto;min-height:0}
+  .modal-foot{border-top:1px solid var(--grid)}
+  .modal-head{padding:16px 18px 14px;position:sticky;top:0;z-index:2}
+  .modal-head h2{font-size:22px}
+  .modal-body{padding:18px 18px 22px}
+  .modal-foot{padding:14px 18px 20px;flex-direction:column;align-items:stretch;gap:12px}
+  .modal-foot .actions{justify-content:space-between}
+  .modal-foot .actions button{flex:1}
+  .ai-out{font-size:14.5px}
+}
+@media (max-width:420px){
+  .kpis{grid-template-columns:1fr}
+  .filters label{flex:1 1 100%}
+}
 .vis-hidden{position:absolute;left:-9999px}
 .hdr-right{display:flex;align-items:center;gap:14px}
 @media (max-width:700px){.meta{display:none}.brand h1{font-size:22px}}
@@ -150,6 +234,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-h
       </div>
       <div class="hdr-right">
         <div class="meta" id="meta"></div>
+        <button class="ghost gold" id="aiBtn" type="button">✦ AI analysis</button>
         <button class="ghost" id="themeBtn" type="button" aria-label="Toggle dark mode">Dark mode</button>
       </div>
     </header>
@@ -271,6 +356,27 @@ footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-h
 
   <footer id="foot"></footer>
 </div>
+<div class="modal-bg" id="aiModal" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h2 id="aiTitle">AI analysis</h2><div class="sub" id="aiSub"></div></div>
+      <button class="btn-x" id="aiClose" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="ai-status" id="aiStatus" hidden><span class="dot"></span><span id="aiStatusText">Analyzing…</span></div>
+      <div class="ai-out" id="aiOut"></div>
+      <div id="aiSetup" hidden></div>
+    </div>
+    <div class="modal-foot">
+      <span id="aiFootNote">Generated by Claude from the figures currently shown. Check against eCW before acting on it.</span>
+      <div class="actions">
+        <select id="aiLang" aria-label="Language"><option value="en">English</option><option value="es">Español</option></select>
+        <button class="ghost" id="aiKeyBtn" type="button" hidden>API key</button>
+        <button class="ghost gold" id="aiAgain" type="button">Analyze again</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script src="data.js"></script>
@@ -372,7 +478,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-h
         hoverable(g, opts.title?opts.title(ci):cat, rows);
         svg.append(g);
       });
-      const every = Math.ceil(cats.length/ (opts.maxLabels||12));
+      const every = Math.ceil(cats.length/ (innerWidth<760 ? Math.min(opts.maxLabels||12, cats.length>7?6:cats.length) : (opts.maxLabels||12)));
       if(ci%every===0 || (ci===cats.length-1 && every>1 && (ci-1)%every!==0)) svg.append(h('text',{svg:1,class:'tick',x:x0+groupW/2,y:H-pad.b+18,'text-anchor':'middle',text:cat}));
     });
     if(opts.directLabel){ const {ci,si,text}=opts.directLabel; const x0=pad.l+band*ci+(band-groupW)/2+si*(bw+gap)+bw/2; const v=series[si].values[ci]; svg.append(h('text',{svg:1,class:'dl',x:x0,y:pad.t+ih-ih*v/max-6,'text-anchor':'middle',text})); }
@@ -543,7 +649,117 @@ footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-h
   }
   renderAging();
 
+
+  // ---------- AI analysis ----------
+  (function(){
+    const modal=el('aiModal'), out=el('aiOut'), status=el('aiStatus'), statusText=el('aiStatusText'), setup=el('aiSetup');
+    let samplePromise = (window.claude && typeof window.claude.use==='function') ? window.claude.use('sample').catch(()=>null) : Promise.resolve(null);
+    let abort=null, busy=false;
+    const getKey=()=>{ try{ return localStorage.getItem('hx-anthropic-key')||''; }catch(e){ return ''; } };
+    const setKey=v=>{ try{ if(v) localStorage.setItem('hx-anthropic-key',v); else localStorage.removeItem('hx-anthropic-key'); }catch(e){} };
+    try{ el('aiLang').value = localStorage.getItem('hx-ai-lang')||'en'; }catch(e){}
+    el('aiLang').onchange=()=>{ try{ localStorage.setItem('hx-ai-lang',el('aiLang').value);}catch(e){} };
+
+    const line = (name,t) => `${name}: billed ${fmt.usd(t.billed)}, collected ${fmt.usd(t.payments)}, contractual ${fmt.usd(t.contractual)}, write-offs ${fmt.usd(t.writeoff)}, balance due ${fmt.usd(t.balanceDue)}, collection rate ${fmt.pct(t.rate)}, claims ${fmt.int(t.claims)}`;
+    function buildContext(){
+      const rows=slice(); const T=totals(rows);
+      const L=[];
+      L.push(`SCOPE: ${el('scope').textContent.replace('Showing: ','')}. Source: eCW report 361.05 (claim-level), run ${D.asOf}. Facility: ${D.facility}.`);
+      L.push('TOTALS: '+line('All',T)+`. Net change in A/R ${fmt.usd(T.arChange)}; credits ${fmt.usd(T.credits)}; insurer payments ${fmt.usd(T.payerPayments)}; patient payments ${fmt.usd(T.patientPayments)}.`);
+      const gm=group(rows,'month'); L.push('BY SERVICE MONTH (billed / collected / balance due):'); months.filter(m=>gm.has(m)).forEach(m=>{ const t=totals(gm.get(m)); L.push(`  ${m}: ${fmt.usd(t.billed)} / ${fmt.usd(t.payments)} / ${fmt.usd(t.balanceDue)} (${fmt.int(t.claims)} claims)`); });
+      const ga=group(rows,'aging'); L.push('OPEN BALANCE BY AGE OF SERVICE DATE: '+D.agingBuckets.map((b,i)=>`${b} ${fmt.usd(ga.has(i)?sum(ga.get(i),'balanceDue'):0)}`).join('; '));
+      const top=(dim,n)=>{ const g=group(rows,dim); return [...g.entries()].map(([i,rs])=>({name:D.dims[dim][i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed).slice(0,n); };
+      L.push('TOP PAYERS:'); top('payer',12).forEach(r=>L.push('  '+line(r.name,r.t)));
+      L.push('TOP SERVICES:'); top('visit',10).forEach(r=>L.push('  '+line(r.name,r.t)));
+      L.push('PROVIDERS:'); top('provider',6).forEach(r=>L.push('  '+line(r.name,r.t)));
+      const gs=group(rows,'status'); L.push('eCW CLAIM STATUS CODES (raw codes, meaning unconfirmed) by balance due: '+[...gs.entries()].map(([i,rs])=>({n:D.dims.status[i],t:totals(rs)})).sort((a,b)=>b.t.balanceDue-a.t.balanceDue).slice(0,10).map(x=>`${x.n} ${fmt.int(x.t.claims)} claims, ${fmt.usd(x.t.balanceDue)} due, ${fmt.usd(x.t.payments)} paid`).join('; '));
+      if(D.aging){ const A=D.aging, mi=Object.fromEntries(A.measures.map((m,i)=>[m,i])), T2=A.total;
+        L.push(`OFFICIAL AGING REPORT (eCW 31.01, run ${A.asOf}, whole practice, NOT filtered): total outstanding ${fmt.usd(T2[mi.balance])} on ${fmt.int(T2[mi.claims])} claims; by bucket `+A.buckets.map((b,i)=>`${b} ${fmt.usd(T2[mi['b'+i]])}`).join('; ')+`. Patient accounts with a balance ${A.patients.withBalance}; top 10 accounts hold ${fmt.pct(A.patients.top10Share)}, top 50 hold ${fmt.pct(A.patients.top50Share)}. Balance bands: `+A.patients.bands.map(b=>`${b.band}: ${b.patients} accounts, ${fmt.usd(b.balance)}`).join('; ')+'.');
+        const vr=Object.entries(A.byVisit).sort((a,b)=>b[1][mi.balance]-a[1][mi.balance]).slice(0,6); L.push('Aging by service (top): '+vr.map(([n,v])=>`${n} ${fmt.usd(v[mi.balance])} outstanding, ${fmt.pct((v[mi.b3]+v[mi.b4]+v[mi.b5]+v[mi.b6])/v[mi.balance])} over 90 days`).join('; '));
+      }
+      return L.join('\n');
+    }
+    const instructions = lang => `You are a revenue-cycle analyst for Helixona, an integrative medicine clinic in Irvine, California that bills insurers (mostly for IV therapies and office visits) through eClinicalWorks. Analyze the billing figures below and write a concise briefing for the clinic owners, who are not finance experts.
+${lang==='es'?'Write in Spanish (español neutro, términos de facturación médica en inglés entre paréntesis cuando ayude).':'Write in English.'}
+Format: use short "###" headings and bullet points. Sections: 1) The headline (2-3 sentences), 2) What is going well, 3) What is worrying, with the specific numbers, 4) Where the money is stuck (payers, services, age), 5) Five concrete actions ranked by dollar impact, 6) Caveats about the data. Be specific, quote figures, avoid jargon, no preamble, under 450 words. Definitions: Billed = full fee-schedule charges; Contractual adjustments = insurer discount never collectible; Write-offs = money given up; Collection rate = collected ÷ (billed − contractual); Balance due = open balances on claims; status codes are raw eCW codes whose meaning is unconfirmed, do not guess them.
+
+DATA:
+`;
+    function md(text){
+      const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const inline=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
+      const lines=text.split('\n'); let html='', list=null;
+      const close=()=>{ if(list){ html+=`</${list}>`; list=null; } };
+      for(const raw of lines){ const l=raw.trim(); if(!l){ close(); continue; }
+        let m;
+        if((m=l.match(/^#{1,4}\s+(.*)/))){ close(); html+=`<h3>${inline(m[1])}</h3>`; }
+        else if((m=l.match(/^[-*•]\s+(.*)/))){ if(list!=='ul'){ close(); html+='<ul>'; list='ul'; } html+=`<li>${inline(m[1])}</li>`; }
+        else if((m=l.match(/^\d+[.)]\s+(.*)/))){ if(list!=='ol'){ close(); html+='<ol>'; list='ol'; } html+=`<li>${inline(m[1])}</li>`; }
+        else { close(); html+=`<p>${inline(l)}</p>`; } }
+      close(); return html;
+    }
+    function showSetup(msg){
+      setup.hidden=false; el('aiKeyBtn').hidden=false;
+      setup.innerHTML='';
+      const box=h('div',{class:'ai-setup'});
+      box.append(h('div',{html:(msg||'')+`To run the analysis on this site, the page calls Claude directly from your browser with your own Anthropic API key. The key is stored only in this browser (never sent anywhere except api.anthropic.com, never in the repository). Create one at <a href="https://platform.claude.com/" target="_blank" rel="noopener">platform.claude.com</a>.`}));
+      const inp=h('input',{type:'password',placeholder:'sk-ant-…',autocomplete:'off',value:getKey()});
+      const row=h('div',{class:'row'});
+      const save=h('button',{class:'ghost gold',type:'button',text:'Save key & analyze'});
+      const clear=h('button',{class:'ghost',type:'button',text:'Remove key'});
+      save.onclick=()=>{ setKey(inp.value.trim()); if(getKey()){ setup.hidden=true; run(); } };
+      clear.onclick=()=>{ setKey(''); inp.value=''; };
+      row.append(save,clear); box.append(inp,row); setup.append(box);
+    }
+    async function viaDirectApi(prompt, onText, signal){
+      const key=getKey(); if(!key) throw {code:'no_key'};
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal,headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','anthropic-beta':'server-side-fallback-2026-07-01'},
+        body:JSON.stringify({model:'claude-opus-5-5',max_tokens:4000,stream:true,fallbacks:'default',system:'You are a careful healthcare revenue-cycle analyst. Follow the user\'s format exactly.',messages:[{role:'user',content:prompt}]})});
+      if(!res.ok){ let msg=''; try{ msg=(await res.json()).error?.message||''; }catch(e){} throw {code:'http_'+res.status,message:msg||res.statusText}; }
+      const reader=res.body.getReader(), dec=new TextDecoder(); let buf='', text='', refusal=null;
+      while(true){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+        const parts=buf.split('\n\n'); buf=parts.pop();
+        for(const part of parts){ const dl=part.split('\n').find(x=>x.startsWith('data:')); if(!dl) continue; let ev; try{ ev=JSON.parse(dl.slice(5)); }catch(e){ continue; }
+          if(ev.type==='content_block_delta' && ev.delta && ev.delta.type==='text_delta'){ text+=ev.delta.text; onText(text); }
+          if(ev.type==='message_delta' && ev.delta && ev.delta.stop_reason==='refusal') refusal=true;
+          if(ev.type==='error') throw {code:'api_error',message:ev.error?.message||'API error'}; } }
+      if(refusal && !text) throw {code:'refusal',message:'The model declined this request.'};
+      return text;
+    }
+    async function run(){
+      if(busy && abort){ abort.abort(); }
+      busy=true; abort=new AbortController(); const signal=abort.signal;
+      out.innerHTML=''; setup.hidden=true; status.hidden=false; statusText.textContent='Reading the figures on screen…';
+      el('aiSub').textContent=el('scope').textContent.replace('Showing: ','Scope: ')+' · '+new Date().toLocaleString();
+      const prompt=instructions(el('aiLang').value)+buildContext();
+      const onText=t=>{ statusText.textContent='Writing…'; out.innerHTML=md(t); };
+      try{
+        const sample=await samplePromise;
+        if(sample){ el('aiFootNote').textContent='Generated by Claude on your claude.ai account from the figures currently shown. Check against eCW before acting on it.';
+          statusText.textContent='Asking Claude…'; const r=await sample(prompt,{onText:({text})=>onText(text),signal,cache:false,modelTier:'complex'}); out.innerHTML=md(r.text); }
+        else { if(!getKey()){ status.hidden=true; showSetup(''); busy=false; return; }
+          statusText.textContent='Asking Claude…'; const t=await viaDirectApi(prompt,onText,signal); out.innerHTML=md(t); }
+        status.hidden=true;
+      }catch(e){ if(signal.aborted) return; status.hidden=true;
+        const code=e&&e.code||''; const msg=(e&&e.message)||String(e);
+        if(code==='no_key'||code==='http_401'||code==='http_403'){ showSetup(`<strong>The API key was missing or rejected.</strong> `); }
+        else if(code==='not_granted'){ out.innerHTML='<div class="ai-err">You declined to let this page ask Claude. Reload the page to be asked again.</div>'; }
+        else { out.innerHTML=(e&&e.text?md(e.text):'')+`<div class="ai-err">The analysis could not be completed (${esc2(code||'error')}). ${esc2(msg)}</div>`; }
+      }
+      busy=false;
+    }
+    const esc2=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const open=()=>{ modal.classList.add('open'); document.body.style.overflow='hidden'; run(); };
+    const close=()=>{ modal.classList.remove('open'); document.body.style.overflow=''; if(abort) abort.abort(); busy=false; };
+    el('aiBtn').onclick=open; el('aiAgain').onclick=run; el('aiClose').onclick=close;
+    el('aiKeyBtn').onclick=()=>{ out.innerHTML=''; status.hidden=true; showSetup(''); };
+    modal.addEventListener('click',e=>{ if(e.target===modal) close(); });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&modal.classList.contains('open')) close(); });
+    samplePromise.then(s=>{ if(!s) el('aiKeyBtn').hidden=false; });
+  })();
+
   el('monthlyToggle').onclick = () => { const t=el('monthlyTable'); t.hidden=!t.hidden; el('monthlyToggle').textContent = t.hidden?'Show as table':'Hide table'; el('monthlyToggle').setAttribute('aria-expanded',String(!t.hidden)); };
+  let rt; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(render,200); });
   render();
 })();
 </script>
