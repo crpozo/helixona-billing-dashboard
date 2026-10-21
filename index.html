@@ -72,6 +72,7 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 .tile .d{font-size:12.5px;color:var(--ink-2);margin-top:2px}
 .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.card h3{color:var(--ink)}
 .card h2{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:600;line-height:1.15}
 .card .hint{margin:2px 0 12px;color:var(--muted);font-size:13px}
 .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
@@ -187,6 +188,33 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     </div>
   </section>
 
+
+  <div style="height:14px"></div>
+  <section class="card" id="agingSection" hidden>
+    <div class="card-head">
+      <div><div class="eyebrow" style="color:var(--gold-2)">Accounts receivable</div><h2>Outstanding balances by age (eCW aging report)</h2><p class="hint" id="agingHint"></p></div>
+      <div class="legend"><span class="pill" id="agingScope">Whole practice · not affected by the filters above</span></div>
+    </div>
+    <div class="grid kpis" id="agingKpis" style="margin-bottom:16px"></div>
+    <div class="grid two">
+      <div>
+        <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">Balance by age bucket</h3>
+        <p class="hint">Aged by claim date, as eCW reports it.</p>
+        <div id="agingChart"></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">Who owes it</h3>
+        <p class="hint">Patient accounts grouped by the size of their balance. No names are shown.</p>
+        <div id="agingBands"></div>
+        <div class="note" id="agingConc"></div>
+      </div>
+    </div>
+    <div style="height:18px"></div>
+    <h3 style="margin:0 0 2px;font-size:15px;font-weight:600">By service</h3>
+    <p class="hint">Top services by outstanding balance; the rest are folded into “Other”.</p>
+    <div id="agingVisits"></div>
+    <div class="note" id="agingNote"></div>
+  </section>
   <div style="height:14px"></div>
   <section class="card">
     <div class="card-head">
@@ -447,6 +475,48 @@ footer{color:var(--muted);font-size:12.5px;margin-top:24px}
     const srows=[...gs.entries()].map(([i,rs])=>({name:D.dims.status[i],t:totals(rs)})).sort((a,b)=>b.t.balanceDue-a.t.balanceDue); srows.push({name:'Total',t:T,_class:'total'});
     table(el('statuses'), [{label:'Status code',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Net A/R change',num:1,render:r=>fmt.usd(r.t.arChange)}], srows);
   }
+
+
+  // ---------- eCW aging report (static, whole practice) ----------
+  function renderAging(){
+    const A = D.aging; if(!A) return;
+    el('agingSection').hidden=false;
+    const S = {s1:css('--s1')};
+    const mi = Object.fromEntries(A.measures.map((m,i)=>[m,i]));
+    const T = A.total, total = T[mi.balance];
+    const b = i => T[mi['b'+i]];
+    const over90 = b(3)+b(4)+b(5)+b(6), over180 = b(6);
+    el('agingHint').textContent = `eCW report 31.01 · run ${A.asOf} · all balances, all payer types · ${fmt.int(T[mi.claims])} claims with a balance.`;
+    const kp=[
+      {l:'Total outstanding (A/R)', v:fmt.usd(total), d:`${fmt.int(T[mi.claims])} claims · ${fmt.usd(T[mi.claimAmount])} originally charged`},
+      {l:'Older than 90 days', v:fmt.usd(over90), d:`${fmt.pct(over90/total)} of outstanding`},
+      {l:'Older than 180 days', v:fmt.usd(over180), d:`${fmt.pct(over180/total)} of outstanding`},
+      {l:'Patient accounts with a balance', v:fmt.int(A.patients.withBalance), d:`${A.patients.withCredit} accounts hold credits (${fmt.usd(A.patients.creditTotal)})`},
+    ];
+    el('agingKpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:k.l}),h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('agingKpis').append(t); });
+    const vals=[0,1,2,3,4,5,6].map(b); const mx=vals.indexOf(Math.max(...vals));
+    const labels=A.buckets.map(x=>x.replace(' Days','').replace('> 180','Over 180').replace(/ - /g,'–')+' days');
+    columnChart(el('agingChart'), labels, [{name:'Outstanding',values:vals,color:S.s1}], {label:'Outstanding balance by age bucket',height:240,maxLabels:7,title:ci=>labels[ci],extra:ci=>[['Share of outstanding',fmt.pct(vals[ci]/total)]],directLabel:{ci:mx,si:0,text:fmt.usdc(vals[mx])}});
+    // bands
+    const bands=A.patients.bands; const maxBand=Math.max(...bands.map(x=>x.balance));
+    table(el('agingBands'), [
+      {label:'Balance per account',key:'band'},{label:'Accounts',num:1,render:r=>fmt.int(r.patients)},{label:'',render:r=>inlineBar(r.balance,maxBand)},{label:'Outstanding',num:1,render:r=>fmt.usd(r.balance)},{label:'Share',num:1,render:r=>fmt.pct(r.balance/total)}
+    ], [...bands, {band:'Total',patients:A.patients.withBalance,balance:bands.reduce((a,x)=>a+x.balance,0),_class:'total'}]);
+    el('agingBands').querySelectorAll('td:nth-child(3)').forEach(td=>td.classList.add('bar-cell'));
+    el('agingConc').innerHTML = `The <strong>10 largest</strong> accounts hold <strong>${fmt.pct(A.patients.top10Share)}</strong> of everything outstanding; the largest 25 hold ${fmt.pct(A.patients.top25Share)} and the largest 50 hold ${fmt.pct(A.patients.top50Share)}. Working those accounts first moves the total fastest.`;
+    // by service
+    const vr = Object.entries(A.byVisit).map(([name,v])=>({name,v})).sort((a,b)=>b.v[mi.balance]-a.v[mi.balance]);
+    const topV=vr.slice(0,10), rest=vr.slice(10);
+    const sumV = list => { const o=new Array(A.measures.length).fill(0); list.forEach(r=>r.v.forEach((x,i)=>o[i]+=x)); return o; };
+    const rowsV=[...topV]; if(rest.length) rowsV.push({name:`Other (${rest.length} services)`,v:sumV(rest),_class:'other'}); rowsV.push({name:'Total',v:T,_class:'total'});
+    const cols=[{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.v[mi.claims])}];
+    labels.forEach((lb,i)=>cols.push({label:lb.replace(' days',''),num:1,render:r=>fmt.usd(r.v[mi['b'+i]])}));
+    cols.push({label:'Outstanding',num:1,render:r=>fmt.usd(r.v[mi.balance])});
+    cols.push({label:'Over 90 d',num:1,render:r=>{ const o=(r.v[mi.b3]+r.v[mi.b4]+r.v[mi.b5]+r.v[mi.b6]); const sh=r.v[mi.balance]>0?o/r.v[mi.balance]:NaN; return h('span',{class:'pill '+(sh<0.4?'good':sh<0.6?'warn':'crit'),text:fmt.pct(sh)}); }});
+    table(el('agingVisits'), cols, rowsV);
+    el('agingNote').innerHTML = `<strong>Two different reports.</strong> The figures above come from the eCW aging report, which lists every open balance in the practice as of ${A.asOf}, aged by claim date. The “Open balance by age” chart higher up is computed from the claim-level export (service dates from July 2025 on, aged by date of service), so the two totals differ slightly. Use this section for the official A/R number; use the sections above to drill into payers and months.`;
+  }
+  renderAging();
 
   el('monthlyToggle').onclick = () => { const t=el('monthlyTable'); t.hidden=!t.hidden; el('monthlyToggle').textContent = t.hidden?'Show as table':'Hide table'; el('monthlyToggle').setAttribute('aria-expanded',String(!t.hidden)); };
   render();

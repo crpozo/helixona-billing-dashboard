@@ -12,11 +12,11 @@ from GitHub Pages (no backend, no build step).
 
 ## Refreshing the numbers
 
-1. In eCW, run report 361.05 and export it to Excel.
+1. In eCW, export report 361.05 (claim-level detail) and, optionally, report 31.01 (aging summary) to Excel.
 2. Run (needs Python 3 and `openpyxl`):
 
    ```bash
-   python3 scripts/build_data.py "path/to/361.05 - Financial Analysis at Claim Level - Detail.xlsx" --as-of 2026-10-20 --out data.js
+   python3 scripts/build_data.py "path/to/361.05 - Financial Analysis at Claim Level - Detail.xlsx" --as-of 2026-10-20 --aging "path/to/31.01 - Aging Summary Analysis Report.xlsx" --out data.js
    ```
 
 3. Commit `data.js` and push. GitHub Pages redeploys automatically.
