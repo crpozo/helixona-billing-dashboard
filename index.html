@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helixona Billing</title>
+<meta name="description" content="Claim-level financial overview for Helixona, built from the eCW 361.05 Financial Analysis export.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --page:#ffffff; --surface:#ffffff; --surface-2:#f6f5f3; --surface-3:#faf6ec;
+  --ink:#121212; --ink-2:#58524b; --muted:#7a736a; --grid:#e9e6e1; --axis:#d6d1c9; --border:#e9e6e1;
+  --black:#050505; --black-ink:#f6f5f3; --gold:#d4b77a; --gold-2:#c4a368; --gold-ink:#121212;
+  --s1:#b8923a; --s2:#2f5fb0; --s3:#1f8a6a; --s4:#8e4fa8; --s-neutral:#b5aea4;
+  --ok-bg:#dcefe3; --ok:#245f3d; --warn-bg:#fbecd2; --warn:#8a5210; --bad-bg:#f9dcd9; --bad:#8e2c24;
+  --radius:12px; --shadow:0 1px 2px rgb(18 18 18 / .04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0b0b0b; --surface:#141414; --surface-2:#1e1d1b; --surface-3:#262219;
+    --ink:#f6f5f3; --ink-2:#cfc9c0; --muted:#938c82; --grid:#2a2825; --axis:#3b3733; --border:#2a2825;
+    --black:#050505; --black-ink:#f6f5f3; --gold:#d4b77a; --gold-2:#c4a368; --gold-ink:#121212;
+    --s1:#b48f3f; --s2:#5b8be0; --s3:#2fa07f; --s4:#a673d1; --s-neutral:#6a645c;
+    --ok-bg:#1d3a2a; --ok:#9fd4b3; --warn-bg:#3d2c12; --warn:#f0c37a; --bad-bg:#43201c; --bad:#f0a59c;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0b0b0b; --surface:#141414; --surface-2:#1e1d1b; --surface-3:#262219;
+  --ink:#f6f5f3; --ink-2:#cfc9c0; --muted:#938c82; --grid:#2a2825; --axis:#3b3733; --border:#2a2825;
+  --black:#050505; --black-ink:#f6f5f3; --gold:#d4b77a; --gold-2:#c4a368; --gold-ink:#121212;
+  --s1:#b48f3f; --s2:#5b8be0; --s3:#2fa07f; --s4:#a673d1; --s-neutral:#6a645c;
+  --ok-bg:#1d3a2a; --ok:#9fd4b3; --warn-bg:#3d2c12; --warn:#f0c37a; --bad-bg:#43201c; --bad:#f0a59c;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font-family:"Jost","Futura",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.45}
+a{color:var(--ink)}
+.topbar{background:var(--black);color:var(--black-ink)}
+.topbar .wrap{padding-bottom:0}
+.topbar img{height:34px;width:auto;display:block}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:500}
+.display{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;letter-spacing:.005em}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px 48px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand .divider{width:1px;height:34px;background:rgba(255,255,255,.18);margin:0 4px}
+.brand h1{margin:0;font-size:26px;font-weight:500;line-height:1.1;color:#fff}
+.brand .sub{margin:2px 0 0;color:rgba(255,255,255,.62);font-size:13px}
+.meta{color:rgba(255,255,255,.6);font-size:13px;text-align:right}
+.meta b{color:#fff;font-weight:500}
+button.ghost{border:1px solid var(--gold-2);background:transparent;color:var(--gold);border-radius:10px;padding:7px 14px;font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;cursor:pointer}
+button.ghost:hover{background:rgba(212,183,122,.12)}
+.filters button.ghost{color:var(--ink);border-color:var(--gold-2);background:var(--gold)}
+.filters button.ghost:hover{background:#dcc48f}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px 0 18px;position:sticky;top:0;background:var(--page);z-index:5;border-bottom:1px solid var(--grid);margin-bottom:16px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:8px 32px 8px 10px;min-width:160px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.filters .reset{align-self:flex-end}
+.filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(4,1fr)}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.tile .l{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tile .v{font-family:"Cormorant Garamond",Georgia,serif;font-size:34px;font-weight:600;line-height:1.1;margin-top:6px;font-variant-numeric:lining-nums}
+.tile .d{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.card h2{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-size:24px;font-weight:600;line-height:1.15}
+.card .hint{margin:2px 0 12px;color:var(--muted);font-size:13px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.two{grid-template-columns:3fr 2fr}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.grid-line{stroke:var(--grid);stroke-width:1}
+.axis-line{stroke:var(--axis);stroke-width:1}
+.tick{fill:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.dl{fill:var(--ink-2);font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums}
+rect.bar{cursor:pointer;transition:opacity .12s}
+rect.bar:hover,rect.bar:focus{opacity:.78;outline:none}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);padding:8px 10px;border-radius:9px;font-size:12.5px;line-height:1.4;box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:50;max-width:260px;display:none}
+.tip b{font-weight:600;font-size:13px}
+.tip .row{display:flex;justify-content:space-between;gap:14px}
+.tip .k{display:inline-flex;align-items:center;gap:6px;opacity:.85}
+.tip .k i{width:12px;height:2px;border-radius:1px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:8px 8px;text-align:left;border-bottom:1px solid var(--grid);vertical-align:middle}
+th{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.14em;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.bar-cell{width:30%;min-width:120px}
+.inline-bar{position:relative;height:14px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.inline-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 4px 4px 0}
+.inline-bar i.c{background:var(--s2)}
+tr.total td{font-weight:600;border-top:2px solid var(--axis)}
+tr.other td{color:var(--ink-2)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--ink-2)}
+.pill.good{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.crit{background:var(--bad-bg);color:var(--bad)}
+.stack{display:flex;height:28px;border-radius:7px;overflow:hidden;gap:2px;background:var(--surface)}
+.stack div{min-width:2px;height:100%;cursor:pointer}
+.stack-labels{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.stack-labels .it{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.stack-labels .it .swatch{margin-top:5px}
+.stack-labels .it b{display:block;font-size:16px;font-weight:600}
+.stack-labels .it small{color:var(--muted)}
+.note{font-size:13px;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:10px 14px;margin-top:14px}
+.note ul{margin:6px 0 0 18px;padding:0}
+footer{color:var(--muted);font-size:12.5px;margin-top:24px}
+.empty{color:var(--muted);padding:30px;text-align:center}
+.toggle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:none;border-bottom:1px solid var(--gold-2);cursor:pointer;padding:0 0 2px;font-family:inherit}
+.vis-hidden{position:absolute;left:-9999px}
+.hdr-right{display:flex;align-items:center;gap:14px}
+@media (max-width:700px){.meta{display:none}.brand h1{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <img src="logo-on-dark.png" alt="Helixona">
+        <div class="divider"></div>
+        <div>
+          <div class="eyebrow">Finance</div>
+          <h1 class="display">Billing overview</h1>
+        </div>
+      </div>
+      <div class="hdr-right">
+        <div class="meta" id="meta"></div>
+        <button class="ghost" id="themeBtn" type="button" aria-label="Toggle dark mode">Dark mode</button>
+      </div>
+    </header>
+  </div>
+</div>
+<div class="wrap">
+  <section class="filters" aria-label="Filters">
+    <label>Period <select id="fPeriod"></select></label>
+    <label>Payer <select id="fPayer"></select></label>
+    <label>Provider <select id="fProvider"></select></label>
+    <label>Service <select id="fVisit"></select></label>
+    <button class="ghost reset" id="reset" type="button">Reset</button>
+    <div class="scope" id="scope"></div>
+  </section>
+
+  <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
+
+  <div style="height:14px"></div>
+  <section class="grid two">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Billed vs. collected by month</h2><p class="hint">By date of service. Collected = all payments posted on those claims (insurance + patient).</p></div>
+        <div class="legend"><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
+      </div>
+      <div id="monthly"></div>
+      <button class="toggle" id="monthlyToggle" type="button" aria-expanded="false">Show as table</button>
+      <div id="monthlyTable" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Where the billed dollars went</h2>
+      <p class="hint">Share of every billed dollar in the selected slice.</p>
+      <div id="breakdown"></div>
+      <div class="note" id="breakdownNote"></div>
+    </div>
+  </section>
+
+  <div style="height:14px"></div>
+  <section class="grid two">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Open balance by age</h2><p class="hint">Balance still due on claims, grouped by days since the date of service (as of the report date).</p></div>
+      </div>
+      <div id="aging"></div>
+    </div>
+    <div class="card">
+      <h2>Insurance vs. patient</h2>
+      <p class="hint">Who the charges are billed to, and who actually paid.</p>
+      <div id="split"></div>
+    </div>
+  </section>
+
+  <div style="height:14px"></div>
+  <section class="card">
+    <div class="card-head">
+      <div><h2>By payer</h2><p class="hint">Sorted by billed amount. Collection rate = collected ÷ (billed − contractual adjustments).</p></div>
+    </div>
+    <div id="payers"></div>
+  </section>
+
+  <div style="height:14px"></div>
+  <section class="grid two">
+    <div class="card">
+      <h2>By service / visit type</h2>
+      <p class="hint">Top services by billed amount; the rest are folded into “Other”.</p>
+      <div id="visits"></div>
+    </div>
+    <div class="card">
+      <h2>By provider</h2>
+      <p class="hint">Appointment / servicing provider as recorded in eCW.</p>
+      <div id="providers"></div>
+    </div>
+  </section>
+
+  <div style="height:14px"></div>
+  <section class="card">
+    <div class="card-head">
+      <div><h2>Claims by eCW status code</h2><p class="hint">Status codes exactly as exported. Meaning of each code to be confirmed with the billing team.</p></div>
+    </div>
+    <div id="statuses"></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  const D = window.BILLING_DATA;
+  if(!D){ document.getElementById('kpis').innerHTML = '<div class="empty">data.js not found. Run scripts/build_data.py first.</div>'; return; }
+  const M = Object.fromEntries(D.measures.map((m,i)=>[m,7+i]));   // measure -> column index in a cell
+  const K = {month:0,payer:1,provider:2,visit:3,status:4,resource:5,aging:6};
+  const cells = D.cells;
+  const months = [...new Set(cells.map(c=>c[0]))].sort();
+  const fmt = {
+    usd: n => (n<0?'−':'') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US'),
+    usdc: n => { const a=Math.abs(n), s=n<0?'−':''; if(a>=1e6) return s+'$'+(a/1e6).toFixed(a>=1e7?0:1)+'M'; if(a>=1e3) return s+'$'+Math.round(a/1e3)+'K'; return s+'$'+Math.round(a); },
+    pct: n => isFinite(n) ? (n*100).toFixed(n*100>=10?0:1)+'%' : '—',
+    int: n => Math.round(n).toLocaleString('en-US'),
+    month: m => { const [y,mo]=m.split('-'); return new Date(+y,+mo-1,1).toLocaleString('en-US',{month:'short',year:'2-digit'}).replace(' ',' ’'); },
+    monthLong: m => { const [y,mo]=m.split('-'); return new Date(+y,+mo-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
+  };
+  const el = id => document.getElementById(id);
+  const h = (tag, attrs={}, ...kids) => { const n = attrs.svg ? document.createElementNS('http://www.w3.org/2000/svg',tag) : document.createElement(tag); for(const [k,v] of Object.entries(attrs)){ if(k==='svg') continue; if(k==='text') n.textContent=v; else if(k==='html') n.innerHTML=v; else if(k.startsWith('on')) n.addEventListener(k.slice(2),v); else n.setAttribute(k,v);} for(const kd of kids){ if(kd==null) continue; n.append(kd.nodeType?kd:document.createTextNode(kd)); } return n; };
+
+  // ---------- header ----------
+  el('meta').innerHTML = `Source: <b>eCW ${D.source}</b><br>Report run <b>${D.asOf}</b> · ${D.claimCount.toLocaleString()} claims · ${D.patientCount} patients`;
+  el('foot').textContent = `Built from the eCW export “${D.source}” (claim date range: ${D.reportPeriod.replace(/^Unassociated\s*/,'').replace(/\s+/g,' ')}). Dashboard generated ${D.generated}. Amounts are as posted in eCW at the time of the export; “change in A/R” and balances follow the report's own arithmetic (billed − payments − adjustments). No patient-identifying information is included in this page.`;
+
+  // ---------- theme ----------
+  const root = document.documentElement;
+  const applyTheme = t => { if(t) root.setAttribute('data-theme',t); else root.removeAttribute('data-theme'); el('themeBtn').textContent = (root.getAttribute('data-theme')==='dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches)) ? 'Light mode' : 'Dark mode'; };
+  let savedTheme=null; try{ savedTheme = localStorage.getItem('hx-theme'); }catch(e){}
+  applyTheme(savedTheme);
+  el('themeBtn').onclick = () => { const dark = el('themeBtn').textContent==='Light mode'; const t = dark?'light':'dark'; try{ localStorage.setItem('hx-theme',t);}catch(e){} applyTheme(t); render(); };
+
+  // ---------- filters ----------
+  const lastMonth = months[months.length-1];
+  const periodOpts = [
+    {id:'all', label:'All dates in export', test:()=>true},
+    {id:'ytd', label:'2026 year to date', test:m=>m>='2026-01'},
+    {id:'l3', label:'Last 3 months', test:m=>months.indexOf(m)>=months.length-3},
+    {id:'l6', label:'Last 6 months', test:m=>months.indexOf(m)>=months.length-6},
+    {id:'q3', label:'Jul – Sep 2026', test:m=>m>='2026-07'&&m<='2026-09'},
+    {id:'h1', label:'Jan – Jun 2026', test:m=>m>='2026-01'&&m<='2026-06'},
+    {id:'2025', label:'2025 (Jul – Dec)', test:m=>m<'2026-01'},
+    ...months.map(m=>({id:'m:'+m,label:'Only '+fmt.monthLong(m),test:x=>x===m}))
+  ];
+  const fill = (sel, opts, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); opts.forEach((o,i)=>sel.append(h('option',{value:String(i),text:o}))); };
+  const byTotal = (dim, measure) => { const t={}; cells.forEach(c=>{ t[c[K[dim]]]=(t[c[K[dim]]]||0)+c[M[measure]]; }); return Object.keys(t).map(Number).sort((a,b)=>t[b]-t[a]); };
+  el('fPeriod').innerHTML=''; periodOpts.forEach(o=>el('fPeriod').append(h('option',{value:o.id,text:o.label})));
+  const payerOrder = byTotal('payer','billed'), provOrder = byTotal('provider','billed'), visitOrder = byTotal('visit','billed');
+  const fillOrdered = (sel, order, names, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); order.forEach(i=>sel.append(h('option',{value:String(i),text:names[i]}))); };
+  fillOrdered(el('fPayer'), payerOrder, D.dims.payer, 'All payers');
+  fillOrdered(el('fProvider'), provOrder, D.dims.provider, 'All providers');
+  fillOrdered(el('fVisit'), visitOrder, D.dims.visit, 'All services');
+  ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).addEventListener('change',render));
+  el('reset').onclick=()=>{ ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).value=id==='fPeriod'?'all':''); render(); };
+
+  const slice = () => {
+    const p = periodOpts.find(o=>o.id===el('fPeriod').value) || periodOpts[0];
+    const payer = el('fPayer').value, prov = el('fProvider').value, visit = el('fVisit').value;
+    return cells.filter(c => p.test(c[0]) && (payer===''||c[1]===+payer) && (prov===''||c[2]===+prov) && (visit===''||c[3]===+visit));
+  };
+  const sum = (rows, m) => rows.reduce((a,c)=>a+c[M[m]],0);
+  const group = (rows, dim) => { const g=new Map(); rows.forEach(c=>{ const k=c[K[dim]]; if(!g.has(k)) g.set(k,[]); g.get(k).push(c); }); return g; };
+  const totals = rows => { const t={}; D.measures.forEach(m=>t[m]=sum(rows,m)); t.netBilled=t.billed-t.contractual; t.rate=t.netBilled>0?t.payments/t.netBilled:NaN; return t; };
+
+  // ---------- tooltip ----------
+  const tip = el('tip');
+  const showTip = (e, title, rows) => { tip.innerHTML=''; tip.append(h('b',{text:title})); rows.forEach(([k,v,color])=>{ const r=h('div',{class:'row'}); const kk=h('span',{class:'k'}); if(color){ kk.append(h('i',{style:'background:'+color})); } kk.append(document.createTextNode(k)); r.append(kk, h('strong',{text:v})); tip.append(r); }); tip.style.display='block'; moveTip(e); };
+  const moveTip = e => { const w=tip.offsetWidth, hh=tip.offsetHeight; let x=e.clientX+14, y=e.clientY+14; if(x+w>innerWidth-8) x=e.clientX-w-14; if(y+hh>innerHeight-8) y=e.clientY-hh-14; tip.style.left=x+'px'; tip.style.top=y+'px'; };
+  const hideTip = () => tip.style.display='none';
+  const hoverable = (node, title, rows) => { node.addEventListener('pointerenter',e=>showTip(e,title,rows)); node.addEventListener('pointermove',moveTip); node.addEventListener('pointerleave',hideTip); node.setAttribute('tabindex','0'); node.addEventListener('focus',e=>{ const r=node.getBoundingClientRect(); showTip({clientX:r.left+r.width/2,clientY:r.top},title,rows); }); node.addEventListener('blur',hideTip); };
+  const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+
+  // ---------- chart helpers ----------
+  const niceMax = v => { if(v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; const m = n<=1?1:n<=2?2:n<=2.5?2.5:n<=4?4:n<=5?5:n<=7.5?7.5:10; return m*p; };
+  function columnChart(container, cats, series, opts={}){
+    container.innerHTML='';
+    const W = 640, H = opts.height||260, pad={l:46,r:8,t:12,b:34};
+    const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+    const max = niceMax(Math.max(1,...series.flatMap(s=>s.values)));
+    const svg = h('svg',{svg:1,viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':opts.label||''});
+    const ticks=4;
+    for(let i=0;i<=ticks;i++){ const y=pad.t+ih-ih*i/ticks; svg.append(h('line',{svg:1,class:i?'grid-line':'axis-line',x1:pad.l,x2:W-pad.r,y1:y,y2:y})); svg.append(h('text',{svg:1,class:'tick',x:pad.l-8,y:y+4,'text-anchor':'end',text:fmt.usdc(max*i/ticks)})); }
+    const band = iw/cats.length, gap=2, n=series.length;
+    const bw = Math.min(24, (band*0.7-gap*(n-1))/n);
+    const groupW = bw*n+gap*(n-1);
+    cats.forEach((cat,ci)=>{
+      const x0 = pad.l+band*ci+(band-groupW)/2;
+      const rows = series.map(s=>[s.name, fmt.usd(s.values[ci]), s.color]);
+      if(opts.extra) rows.push(...opts.extra(ci));
+      series.forEach((s,si)=>{
+        const v=s.values[ci], bh=Math.max(0,ih*v/max), x=x0+si*(bw+gap), y=pad.t+ih-bh;
+        const r = h('rect',{svg:1,class:'bar',x,y,width:bw,height:bh,rx:0,fill:s.color});
+        if(bh>4){ r.setAttribute('rx',4); r.setAttribute('clip-path',''); }
+        // square at baseline: draw a rounded rect plus a square patch at the bottom
+        const g = h('g',{svg:1});
+        g.append(r);
+        if(bh>4) g.append(h('rect',{svg:1,x,y:y+Math.min(4,bh/2),width:bw,height:Math.max(0,bh-Math.min(4,bh/2)),fill:s.color,'pointer-events':'none'}));
+        hoverable(g, opts.title?opts.title(ci):cat, rows);
+        svg.append(g);
+      });
+      const every = Math.ceil(cats.length/ (opts.maxLabels||12));
+      if(ci%every===0 || (ci===cats.length-1 && every>1 && (ci-1)%every!==0)) svg.append(h('text',{svg:1,class:'tick',x:x0+groupW/2,y:H-pad.b+18,'text-anchor':'middle',text:cat}));
+    });
+    if(opts.directLabel){ const {ci,si,text}=opts.directLabel; const x0=pad.l+band*ci+(band-groupW)/2+si*(bw+gap)+bw/2; const v=series[si].values[ci]; svg.append(h('text',{svg:1,class:'dl',x:x0,y:pad.t+ih-ih*v/max-6,'text-anchor':'middle',text})); }
+    container.append(svg);
+  }
+
+  function table(container, cols, rows, opts={}){
+    container.innerHTML='';
+    const t=h('table'); const thead=h('thead'); const tr=h('tr');
+    cols.forEach(c=>tr.append(h('th',{class:c.num?'n':'' ,text:c.label}))); thead.append(tr); t.append(thead);
+    const tb=h('tbody');
+    rows.forEach(r=>{ const trr=h('tr',{class:r._class||''}); cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
+    t.append(tb); container.append(t);
+    if(opts.empty && !rows.length) container.append(h('div',{class:'empty',text:opts.empty}));
+  }
+  const inlineBar = (v, max, cls) => { const d=h('div',{class:'inline-bar'}); d.append(h('i',{class:cls||'',style:`width:${max>0?Math.max(0,Math.min(100,v/max*100)):0}%`})); return d; };
+  const ratePill = r => { if(!isFinite(r)) return h('span',{class:'pill',text:'—'}); if(r>1.2) return h('span',{class:'pill',text:'over 100%',title:'Payments posted exceed the net charges in this slice (e.g. copays on $0 claims)'}); const cls = r>=0.6?'good':r>=0.3?'warn':'crit'; return h('span',{class:'pill '+cls,text:fmt.pct(r)}); };
+
+  // ---------- render ----------
+  function render(){
+    const rows = slice(); const T = totals(rows);
+    const payerSel=el('fPayer').value, provSel=el('fProvider').value, visitSel=el('fVisit').value;
+    const periodLabel = el('fPeriod').selectedOptions[0].textContent;
+    const parts=[periodLabel]; if(payerSel!=='') parts.push(D.dims.payer[+payerSel]); if(provSel!=='') parts.push(D.dims.provider[+provSel]); if(visitSel!=='') parts.push(D.dims.visit[+visitSel]);
+    el('scope').textContent = 'Showing: '+parts.join(' · ');
+    const S = {s1:css('--s1'),s2:css('--s2'),s3:css('--s3'),s4:css('--s4'),neutral:css('--s-neutral')};
+
+    // KPIs
+    const patients = (payerSel===''&&provSel===''&&visitSel===''&&el('fPeriod').value==='all') ? D.patientCount
+                   : (provSel===''&&visitSel===''&&el('fPeriod').value==='all'&&payerSel!=='') ? (D.patientsByPayer[payerSel]||0)
+                   : (payerSel===''&&provSel===''&&visitSel===''&&el('fPeriod').value.startsWith('m:')) ? (D.patientsByMonth[el('fPeriod').value.slice(2)]||0) : null;
+    const kp = [
+      {l:'Billed', v:fmt.usd(T.billed), d:`${fmt.int(T.claims)} claims`, c:S.s1},
+      {l:'Collected', v:fmt.usd(T.payments), d:`${fmt.pct(T.billed>0?T.payments/T.billed:NaN)} of billed`, c:S.s2},
+      {l:'Collection rate', v:fmt.pct(T.rate), d:'of billed after contractual adj.'},
+      {l:'Contractual adjustments', v:fmt.usd(T.contractual), d:`${fmt.pct(T.billed>0?T.contractual/T.billed:NaN)} of billed`, c:S.s3},
+      {l:'Write-offs', v:fmt.usd(T.writeoff), d:`${fmt.pct(T.billed>0?T.writeoff/T.billed:NaN)} of billed`, c:S.s4},
+      {l:'Balance still due', v:fmt.usd(T.balanceDue), d:'claims with an open balance'},
+      {l:'Net change in A/R', v:fmt.usd(T.arChange), d:'billed − collected − adjustments'},
+      {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'available for a single payer or month':'distinct patient accounts'},
+    ];
+    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
+
+    // Monthly
+    const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
+    const billed = ms.map(m=>sum(gm.get(m),'billed')), paid = ms.map(m=>sum(gm.get(m),'payments'));
+    if(ms.length){
+      const peak = billed.indexOf(Math.max(...billed));
+      columnChart(el('monthly'), ms.map(fmt.month), [{name:'Billed',values:billed,color:S.s1},{name:'Collected',values:paid,color:S.s2}],
+        {label:'Billed and collected by service month', title:ci=>fmt.monthLong(ms[ci]), extra:ci=>[['Collection rate', fmt.pct(totals(gm.get(ms[ci])).rate)],['Claims', fmt.int(sum(gm.get(ms[ci]),'claims'))]], directLabel:{ci:peak,si:0,text:fmt.usdc(billed[peak])}});
+    } else el('monthly').innerHTML='<div class="empty">No claims in this selection.</div>';
+    table(el('monthlyTable'), [
+      {label:'Month',key:'m'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
+    ], [...ms.map(m=>({m:fmt.monthLong(m),t:totals(gm.get(m))})), {m:'Total',t:T,_class:'total'}]);
+
+    // Breakdown
+    const bd = el('breakdown'); bd.innerHTML='';
+    const open = T.billed - T.payments - T.contractual - T.writeoff;
+    const segs = [['Collected',T.payments,S.s2],['Contractual adjustments',T.contractual,S.s3],['Write-offs',T.writeoff,S.s4],['Still open (net)',Math.max(0,open),S.neutral]];
+    const tot = segs.reduce((a,s)=>a+s[1],0);
+    const st=h('div',{class:'stack',role:'img','aria-label':'Share of billed dollars'});
+    segs.forEach(([n,v,c])=>{ const d=h('div',{style:`flex:${Math.max(v,0)} 0 0;background:${c}`}); hoverable(d,n,[['Amount',fmt.usd(v)],['Share of billed',fmt.pct(tot>0?v/tot:NaN)]]); st.append(d); });
+    bd.append(st);
+    const lab=h('div',{class:'stack-labels'}); segs.forEach(([n,v,c])=>{ const it=h('div',{class:'it'}); it.append(h('i',{class:'swatch',style:'background:'+c})); const tx=h('div'); tx.append(h('b',{text:fmt.pct(tot>0?v/tot:NaN)}),document.createTextNode(n+' '),h('small',{text:fmt.usd(v)})); it.append(tx); lab.append(it); }); bd.append(lab);
+    el('breakdownNote').innerHTML = `<strong>Reading this:</strong> out of ${fmt.usd(T.billed)} billed, ${fmt.usd(T.payments)} has come in. Contractual adjustments are the part insurers never pay by contract; write-offs are amounts the clinic gave up. The remainder is what is still expected to come in${T.credits<0?` (net of ${fmt.usd(-T.credits)} in credits on claims paid above their period charges)`:''}.`;
+
+    // Aging
+    const ga = group(rows,'aging'); const buckets = D.agingBuckets.map((b,i)=>ga.has(i)?sum(ga.get(i),'balanceDue'):0);
+    const totalDue = buckets.reduce((a,b)=>a+b,0);
+    if(totalDue>0){
+      const mx = buckets.indexOf(Math.max(...buckets));
+      columnChart(el('aging'), D.agingBuckets, [{name:'Balance due',values:buckets,color:S.s1}], {label:'Open balance by age', height:240, maxLabels:6, extra:ci=>[['Share of open balance',fmt.pct(buckets[ci]/totalDue)],['Claims with balance', fmt.int(ga.has(ci)?ga.get(ci).reduce((a,c)=>a+(c[M.balanceDue]>0?c[M.claims]:0),0):0)]], directLabel:{ci:mx,si:0,text:fmt.usdc(buckets[mx])}});
+      const over90 = buckets.slice(3).reduce((a,b)=>a+b,0);
+      el('aging').append(h('div',{class:'note',html:`<strong>${fmt.usd(totalDue)}</strong> is still due in this selection. <strong>${fmt.pct(over90/totalDue)}</strong> of it (${fmt.usd(over90)}) is on services older than 90 days.`}));
+    } else el('aging').innerHTML='<div class="empty">No open balance in this selection.</div>';
+
+    // Insurance vs patient
+    const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
+    const ins = rows.filter(c=>!isPatientPayer(c[1])), pat = rows.filter(c=>isPatientPayer(c[1]));
+    const Ti=totals(ins), Tp=totals(pat);
+    table(el('split'), [
+      {label:'',key:'n'},{label:'Billed to insurance',num:1,render:r=>r.i},{label:'Billed to patient',num:1,render:r=>r.p}
+    ], [
+      {n:'Claims', i:fmt.int(Ti.claims), p:fmt.int(Tp.claims)},
+      {n:'Billed', i:fmt.usd(Ti.billed), p:fmt.usd(Tp.billed)},
+      {n:'Collected', i:fmt.usd(Ti.payments), p:fmt.usd(Tp.payments)},
+      {n:'Collection rate', i:ratePill(Ti.rate), p:ratePill(Tp.rate)},
+      {n:'Balance due', i:fmt.usd(Ti.balanceDue), p:fmt.usd(Tp.balanceDue)},
+    ]);
+    el('split').append(h('div',{class:'note',html:`Across all claims in this selection, insurers paid <strong>${fmt.usd(T.payerPayments)}</strong> and patients paid <strong>${fmt.usd(T.patientPayments)}</strong> (patient payments include copays and balances on insurance claims).`}));
+
+    // Payers
+    const gp = group(rows,'payer');
+    const prow = [...gp.entries()].map(([i,rs])=>({name:D.dims.payer[i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed);
+    const maxB = prow.length?prow[0].t.billed:0;
+    const top = prow.slice(0,12), rest = prow.slice(12);
+    const payerRows = top.map(r=>r);
+    if(rest.length){ const tr=totals(rest.flatMap(r=>[...gp.get(D.dims.payer.indexOf(r.name))])); payerRows.push({name:`Other (${rest.length} payers)`,t:tr,_class:'other'}); }
+    payerRows.push({name:'Total',t:T,_class:'total'});
+    table(el('payers'), [
+      {label:'Payer',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},
+      {label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},
+      {label:'',render:r=>r._class?'':(()=>{ const w=h('div'); w.append(inlineBar(r.t.billed,maxB)); const c=inlineBar(r.t.payments,maxB,'c'); c.style.marginTop='3px'; w.append(c); return w; })()},
+      {label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
+    ], payerRows);
+    el('payers').querySelectorAll('td:nth-child(4)').forEach(td=>td.classList.add('bar-cell'));
+    el('payers').append(h('div',{class:'legend',style:'margin-top:10px'},h('span',{},h('i',{class:'swatch',style:'background:var(--s1)'}),'Billed'),h('span',{},h('i',{class:'swatch',style:'background:var(--s2)'}),'Collected')));
+
+    // Visits
+    const gv = group(rows,'visit');
+    const vrow=[...gv.entries()].map(([i,rs])=>({name:D.dims.visit[i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed);
+    const vtop=vrow.slice(0,12), vrest=vrow.slice(12); const vrows=[...vtop];
+    if(vrest.length) vrows.push({name:`Other (${vrest.length} services)`,t:totals(vrest.flatMap(r=>gv.get(D.dims.visit.indexOf(r.name)))),_class:'other'});
+    vrows.push({name:'Total',t:T,_class:'total'});
+    table(el('visits'), [{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], vrows);
+
+    // Providers
+    const gpr = group(rows,'provider');
+    const prrows=[...gpr.entries()].map(([i,rs])=>({name:D.dims.provider[i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed); prrows.push({name:'Total',t:T,_class:'total'});
+    table(el('providers'), [{label:'Provider',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], prrows);
+
+    // Statuses
+    const gs = group(rows,'status');
+    const srows=[...gs.entries()].map(([i,rs])=>({name:D.dims.status[i],t:totals(rs)})).sort((a,b)=>b.t.balanceDue-a.t.balanceDue); srows.push({name:'Total',t:T,_class:'total'});
+    table(el('statuses'), [{label:'Status code',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Net A/R change',num:1,render:r=>fmt.usd(r.t.arChange)}], srows);
+  }
+
+  el('monthlyToggle').onclick = () => { const t=el('monthlyTable'); t.hidden=!t.hidden; el('monthlyToggle').textContent = t.hidden?'Show as table':'Hide table'; el('monthlyToggle').setAttribute('aria-expanded',String(!t.hidden)); };
+  render();
+})();
+</script>
+</body>
+</html>
