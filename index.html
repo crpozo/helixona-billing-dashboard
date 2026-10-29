@@ -64,6 +64,8 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 .filters label{display:flex;flex-direction:column;gap:8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
 .filters select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:11px 36px 11px 14px;min-width:180px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat}
 .filters .reset{align-self:flex-end}
+.custom-range{display:flex;gap:10px}
+.custom-range input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:10px 12px;min-width:150px}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
 .grid{display:grid;gap:24px}
 .grid>*{min-width:0}
@@ -89,6 +91,9 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 @media (max-width:900px){.two{grid-template-columns:1fr}}
 .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);padding-top:6px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
+.seg{border:1px solid var(--axis);border-radius:999px;overflow:hidden;gap:0!important}
+.seg button{font:inherit;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;border:0;background:transparent;color:var(--ink-2);cursor:pointer}
+.seg button.on{background:var(--black);color:#fff}
 svg{display:block;width:100%;height:auto;overflow:visible}
 .grid-line{stroke:var(--grid);stroke-width:1}
 .axis-line{stroke:var(--axis);stroke-width:1}
@@ -113,6 +118,9 @@ td.bar-cell{width:30%;min-width:120px}
 .inline-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 4px 4px 0}
 .inline-bar i.c{background:var(--s2)}
 tr.total td{font-weight:600;border-top:2px solid var(--axis)}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:var(--surface-3)}
+tr.clickable td:first-child::after{content:' ›';color:var(--gold-2);font-weight:600}
 tr.other td{color:var(--ink-2)}
 .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--ink-2)}
 .pill.good{background:var(--ok-bg);color:var(--ok)}
@@ -127,6 +135,7 @@ tr.other td{color:var(--ink-2)}
 .stack-labels .it small{color:var(--muted)}
 .note{font-size:13.5px;line-height:1.55;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:14px 18px;margin-top:22px}
 .note ul{margin:6px 0 0 18px;padding:0}
+.sep{border:0;border-top:1px solid var(--grid);margin:28px 0 24px}
 .gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 32px}
 .gloss div{font-size:13.5px;color:var(--ink-2);line-height:1.5}
 .gloss b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
@@ -243,6 +252,7 @@ button.ghost.gold:hover{background:#dcc48f}
 <div class="wrap">
   <section class="filters" aria-label="Filters">
     <label>Period <select id="fPeriod"></select></label>
+    <div id="customRange" class="custom-range" hidden><label>From <input type="date" id="fFrom"></label><label>To <input type="date" id="fTo"></label></div>
     <label>Payer <select id="fPayer"></select></label>
     <label>Provider <select id="fProvider"></select></label>
     <label>Service <select id="fVisit"></select></label>
@@ -255,8 +265,8 @@ button.ghost.gold:hover{background:#dcc48f}
   <section class="grid two section">
     <div class="card">
       <div class="card-head">
-        <div><h2>Billed vs. collected by month</h2><p class="hint">By date of service. Collected = all payments posted on those claims (insurance + patient).</p></div>
-        <div class="legend"><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
+        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service. Collected = all payments posted on those claims (insurance + patient).</p></div>
+        <div class="legend"><span class="seg" role="group" aria-label="Granularity"><button type="button" class="on" data-g="month">Month</button><button type="button" data-g="week">Week</button></span><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
       </div>
       <div id="monthly"></div>
       <button class="toggle" id="monthlyToggle" type="button" aria-expanded="false">Show as table</button>
@@ -285,12 +295,20 @@ button.ghost.gold:hover{background:#dcc48f}
   </section>
 
 
+  <section class="card section">
+    <div class="card-head">
+      <div><h2>Visit notes by status</h2><p class="hint">Where each visit sits in eCW: a note is billable once it is locked (IV Locked / Check Out). Rows are the eCW resource the visit was booked under. Click a row to see the weeks and services behind it.</p></div>
+    </div>
+    <div id="notes"></div>
+  </section>
+
   <section class="card section" id="agingSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Accounts receivable</div><h2>Outstanding balances by age (eCW aging report)</h2><p class="hint" id="agingHint"></p></div>
       <div class="legend"><span class="pill" id="agingScope">Whole practice · not affected by the filters above</span></div>
     </div>
-    <div class="grid kpis" id="agingKpis" style="margin:18px 0 28px"></div>
+    <div class="grid kpis" id="agingKpis" style="margin:18px 0 0"></div>
+    <hr class="sep">
     <div class="grid two">
       <div>
         <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Balance by age bucket</h3>
@@ -304,7 +322,7 @@ button.ghost.gold:hover{background:#dcc48f}
         <div class="note" id="agingConc"></div>
       </div>
     </div>
-    <div style="height:28px"></div>
+    <hr class="sep">
     <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By service</h3>
     <p class="hint">Top services by outstanding balance; the rest are folded into “Other”.</p>
     <div id="agingVisits"></div>
@@ -312,9 +330,17 @@ button.ghost.gold:hover{background:#dcc48f}
   </section>
   <section class="card section">
     <div class="card-head">
-      <div><h2>By payer</h2><p class="hint">Sorted by billed amount. Collection rate = collected ÷ (billed − contractual adjustments).</p></div>
+      <div><h2>By payer</h2><p class="hint">Sorted by billed amount. Click a payer to see why it is or is not paying. Hover a column title for its definition.</p></div>
     </div>
     <div id="payers"></div>
+  </section>
+
+  <section class="card section">
+    <div class="card-head">
+      <div><h2>Payments posted by payer</h2><p class="hint">Money received, by payer and by month of service. Insurance and patient payments on the same claims are shown separately in the last two columns.</p></div>
+      <div class="legend"><label style="display:flex;gap:8px;align-items:center;font-size:13px">Rows <select id="payRows" style="font:inherit;font-size:13px;padding:5px 28px 5px 8px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink)"><option value="payer">Payers</option><option value="visit">Services</option><option value="provider">Providers</option></select></label></div>
+    </div>
+    <div id="payments"></div>
   </section>
 
   <section class="grid halves section">
@@ -375,6 +401,15 @@ button.ghost.gold:hover{background:#dcc48f}
     </div>
   </div>
 </div>
+<div class="modal-bg" id="detailModal" role="dialog" aria-modal="true">
+  <div class="modal" style="width:min(1100px,100%)">
+    <div class="modal-head">
+      <div><div class="eyebrow" id="dEyebrow">Payer detail</div><h2 id="dTitle">—</h2><div class="sub" id="dSub"></div></div>
+      <button class="btn-x" id="dClose" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body" id="dBody"></div>
+  </div>
+</div>
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script src="data.js"></script>
@@ -382,19 +417,30 @@ button.ghost.gold:hover{background:#dcc48f}
 (function(){
   const D = window.BILLING_DATA;
   if(!D){ document.getElementById('kpis').innerHTML = '<div class="empty">data.js not found. Run scripts/build_data.py first.</div>'; return; }
-  const M = Object.fromEntries(D.measures.map((m,i)=>[m,7+i]));   // measure -> column index in a cell
-  const K = {month:0,payer:1,provider:2,visit:3,status:4,resource:5,aging:6};
+  const K = Object.fromEntries(D.keys.map((k,i)=>[k,i]));          // key dimension -> column index in a cell
+  const M = Object.fromEntries(D.measures.map((m,i)=>[m,D.keys.length+i]));   // measure -> column index in a cell
+  // Payer families: names eCW keeps apart but that are the same insurer.
+  const PAYER_GROUPS = {'Blue Cross California':'Anthem Blue Cross (incl. Blue Cross California)','Anthem Blue Cross':'Anthem Blue Cross (incl. Blue Cross California)'};
+  D.dims.payerOrig = D.dims.payer.slice();
+  (function(){ const names=[]; const map=D.dims.payerOrig.map(n=>{ const g=PAYER_GROUPS[n]||n; let i=names.indexOf(g); if(i<0){ names.push(g); i=names.length-1; } return i; });
+    D.cells.forEach(c=>{ c.push(c[K.payer]); c[K.payer]=map[c[K.payer]]; });
+    const pb={}; Object.entries(D.patientsByPayer).forEach(([k,v])=>{ const gi=map[+k]; pb[gi]=(gi in pb)?null:v; }); D.patientsByPayer=pb; D.dims.payer=names; })();
+  const ORIG=D.keys.length+D.measures.length; // column holding the original eCW payer index
   const cells = D.cells;
-  const months = [...new Set(cells.map(c=>c[0]))].sort();
+  const months = [...new Set(cells.map(c=>c[K.month]))].sort();
+  const weeks = [...new Set(cells.map(c=>c[K.week]))].sort();
   const fmt = {
     usd: n => (n<0?'−':'') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US'),
     usdc: n => { const a=Math.abs(n), s=n<0?'−':''; if(a>=1e6) return s+'$'+(a/1e6).toFixed(a>=1e7?0:1)+'M'; if(a>=1e3) return s+'$'+Math.round(a/1e3)+'K'; return s+'$'+Math.round(a); },
     pct: n => isFinite(n) ? (n*100).toFixed(n*100>=10?0:1)+'%' : '—',
     int: n => Math.round(n).toLocaleString('en-US'),
     month: m => { const [y,mo]=m.split('-'); return new Date(+y,+mo-1,1).toLocaleString('en-US',{month:'short',year:'2-digit'}).replace(' ',' ’'); },
+    week: w => { const [y,mo,d]=w.split('-'); return new Date(+y,+mo-1,+d).toLocaleString('en-US',{month:'short',day:'numeric'}); },
+    weekLong: w => { const [y,mo,d]=w.split('-'); const a=new Date(+y,+mo-1,+d), b=new Date(a); b.setDate(a.getDate()+6); return a.toLocaleString('en-US',{month:'short',day:'numeric'})+' – '+b.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); },
     monthLong: m => { const [y,mo]=m.split('-'); return new Date(+y,+mo-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
   };
   const el = id => document.getElementById(id);
+  var gran='month';
   const h = (tag, attrs={}, ...kids) => { const n = attrs.svg ? document.createElementNS('http://www.w3.org/2000/svg',tag) : document.createElement(tag); for(const [k,v] of Object.entries(attrs)){ if(k==='svg') continue; if(k==='text') n.textContent=v; else if(k==='html') n.innerHTML=v; else if(k.startsWith('on')) n.addEventListener(k.slice(2),v); else n.setAttribute(k,v);} for(const kd of kids){ if(kd==null) continue; n.append(kd.nodeType?kd:document.createTextNode(kd)); } return n; };
 
   // ---------- header ----------
@@ -409,32 +455,50 @@ button.ghost.gold:hover{background:#dcc48f}
   el('themeBtn').onclick = () => { const dark = el('themeBtn').textContent==='Light mode'; const t = dark?'light':'dark'; try{ localStorage.setItem('hx-theme',t);}catch(e){} applyTheme(t); render(); };
 
   // ---------- filters ----------
-  const lastMonth = months[months.length-1];
+  // Period presets are relative to the report date (the last day covered by the export).
+  const REF = (()=>{ const [y,m,d]=D.asOf.split('-'); return new Date(+y,+m-1,+d); })();
+  const iso = d => d.toISOString().slice(0,10);
+  const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+  const monday = d => addDays(d, -((d.getDay()+6)%7));
+  const firstOfMonth = (d,off=0) => new Date(d.getFullYear(), d.getMonth()+off, 1);
+  const lastOfMonth = (d,off=0) => new Date(d.getFullYear(), d.getMonth()+off+1, 0);
+  const thisMon = monday(REF);
   const periodOpts = [
-    {id:'all', label:'All dates in export', test:()=>true},
-    {id:'ytd', label:'2026 year to date', test:m=>m>='2026-01'},
-    {id:'l3', label:'Last 3 months', test:m=>months.indexOf(m)>=months.length-3},
-    {id:'l6', label:'Last 6 months', test:m=>months.indexOf(m)>=months.length-6},
-    {id:'q3', label:'Jul – Sep 2026', test:m=>m>='2026-07'&&m<='2026-09'},
-    {id:'h1', label:'Jan – Jun 2026', test:m=>m>='2026-01'&&m<='2026-06'},
-    {id:'2025', label:'2025 (Jul – Dec)', test:m=>m<'2026-01'},
-    ...months.map(m=>({id:'m:'+m,label:'Only '+fmt.monthLong(m),test:x=>x===m}))
+    {id:'all', label:'All dates in export', range:null},
+    {id:'tw', label:'This week', range:[thisMon, addDays(thisMon,6)]},
+    {id:'lw', label:'Last week', range:[addDays(thisMon,-7), addDays(thisMon,-1)]},
+    {id:'l4w', label:'Last 4 weeks', range:[addDays(thisMon,-28), addDays(thisMon,-1)]},
+    {id:'mtd', label:'Month to date', range:[firstOfMonth(REF), REF]},
+    {id:'lm', label:'Last month', range:[firstOfMonth(REF,-1), lastOfMonth(REF,-1)]},
+    {id:'l3m', label:'Last 3 months', range:[firstOfMonth(REF,-3), lastOfMonth(REF,-1)]},
+    {id:'ytd', label:'2026 year to date', range:[new Date(2026,0,1), REF]},
+    {id:'q3', label:'Jul – Sep 2026', range:[new Date(2026,6,1), new Date(2026,8,30)]},
+    {id:'h1', label:'Jan – Jun 2026', range:[new Date(2026,0,1), new Date(2026,5,30)]},
+    {id:'2025', label:'2025 (Jul – Dec)', range:[new Date(2025,6,1), new Date(2025,11,31)]},
+    {id:'custom', label:'Custom range…', range:'custom'},
   ];
+  const activeRange = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; if(o.range==='custom'){ const f=el('fFrom').value, t=el('fTo').value; if(!f&&!t) return null; const F=f?new Date(f+'T00:00:00'):new Date(2000,0,1), T=t?new Date(t+'T00:00:00'):new Date(2100,0,1); return [F,T]; } return o.range; };
+  // A cell covers a service week (Monday..Sunday); it is included when that week overlaps the range.
+  const weekTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return w => { const wEnd=iso(addDays(new Date(w+'T00:00:00'),6)); return wEnd>=from && w<=to; }; };
+  const rangeLabel = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; const r=activeRange(); if(!r) return o.label; const f=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); return (o.range==='custom'?'':o.label+': ')+f(r[0])+' – '+f(r[1]); };
   const fill = (sel, opts, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); opts.forEach((o,i)=>sel.append(h('option',{value:String(i),text:o}))); };
   const byTotal = (dim, measure) => { const t={}; cells.forEach(c=>{ t[c[K[dim]]]=(t[c[K[dim]]]||0)+c[M[measure]]; }); return Object.keys(t).map(Number).sort((a,b)=>t[b]-t[a]); };
   el('fPeriod').innerHTML=''; periodOpts.forEach(o=>el('fPeriod').append(h('option',{value:o.id,text:o.label})));
+  el('fPeriod').addEventListener('change',()=>{ el('customRange').hidden = el('fPeriod').value!=='custom'; });
+  el('fFrom').min=weeks[0]; el('fTo').max=D.asOf;
   const payerOrder = byTotal('payer','billed'), provOrder = byTotal('provider','billed'), visitOrder = byTotal('visit','billed');
   const fillOrdered = (sel, order, names, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); order.forEach(i=>sel.append(h('option',{value:String(i),text:names[i]}))); };
   fillOrdered(el('fPayer'), payerOrder, D.dims.payer, 'All payers');
   fillOrdered(el('fProvider'), provOrder, D.dims.provider, 'All providers');
   fillOrdered(el('fVisit'), visitOrder, D.dims.visit, 'All services');
-  ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).addEventListener('change',render));
-  el('reset').onclick=()=>{ ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).value=id==='fPeriod'?'all':''); render(); };
+  ['fPeriod','fPayer','fProvider','fVisit','fFrom','fTo'].forEach(id=>el(id).addEventListener('change',render));
+  el('payRows').addEventListener('change',render);
+  el('reset').onclick=()=>{ ['fPeriod','fPayer','fProvider','fVisit','fFrom','fTo'].forEach(id=>el(id).value=id==='fPeriod'?'all':''); el('customRange').hidden=true; render(); };
 
   const slice = () => {
-    const p = periodOpts.find(o=>o.id===el('fPeriod').value) || periodOpts[0];
+    const wt = weekTest(activeRange());
     const payer = el('fPayer').value, prov = el('fProvider').value, visit = el('fVisit').value;
-    return cells.filter(c => p.test(c[0]) && (payer===''||c[1]===+payer) && (prov===''||c[2]===+prov) && (visit===''||c[3]===+visit));
+    return cells.filter(c => wt(c[K.week]) && (payer===''||c[K.payer]===+payer) && (prov===''||c[K.provider]===+prov) && (visit===''||c[K.visit]===+visit));
   };
   const sum = (rows, m) => rows.reduce((a,c)=>a+c[M[m]],0);
   const group = (rows, dim) => { const g=new Map(); rows.forEach(c=>{ const k=c[K[dim]]; if(!g.has(k)) g.set(k,[]); g.get(k).push(c); }); return g; };
@@ -483,13 +547,32 @@ button.ghost.gold:hover{background:#dcc48f}
     container.append(svg);
   }
 
+  const TH_HELP = {
+    'Billed':'Total charges sent out at the full fee schedule, before any insurer discount.',
+    'Collected':'Payments actually received on these claims, insurer and patient combined.',
+    'Contractual':'Insurer discount: the part of the fee the contract says is never paid. Not a loss, it was never collectible.',
+    'Write-offs':'Amounts the clinic gave up: denials not appealed, courtesy discounts, small balances, timely-filing losses. Real money lost.',
+    'Balance due':'Open balance still owed on these claims.',
+    'Rate':'Collection rate = Collected ÷ (Billed − Contractual). Share of what was realistically collectible that has come in.',
+    'Net A/R change':'Billed − Collected − Contractual − Write-offs for the period.',
+    'Outstanding':'Open balance per the eCW aging report.',
+    'Over 90 d':'Share of the outstanding balance older than 90 days.',
+    'Claims':'Number of claims (one per visit/encounter billed).',
+    'Total posted':'All payments received on these claims.',
+    'From insurer':'Payments received from the insurance company.',
+    'From patient':'Payments received from the patient (copays, coinsurance, self-pay).',
+    'Of billed':'Payments ÷ Billed.',
+    'Not locked':'Visits whose note is not yet locked or checked out, so they cannot be billed yet.',
+    'No charge yet':'Visits that exist in eCW but have $0 billed: the charge has not been entered.',
+    'Visits':'Number of visits (appointments) in eCW, billed or not.',
+  };
   function table(container, cols, rows, opts={}){
     container.innerHTML='';
     const wrap=h('div',{class:'table-wrap'}); container.append(wrap);
     const t=h('table'); const thead=h('thead'); const tr=h('tr');
-    cols.forEach(c=>tr.append(h('th',{class:c.num?'n':'' ,text:c.label}))); thead.append(tr); t.append(thead);
+    cols.forEach(c=>{ const th=h('th',{class:c.num?'n':'' ,text:c.label}); const help=TH_HELP[c.label]; if(help){ th.title=help; th.style.cursor='help'; th.style.textDecoration='underline dotted'; th.style.textUnderlineOffset='3px'; } tr.append(th); }); thead.append(tr); t.append(thead);
     const tb=h('tbody');
-    rows.forEach(r=>{ const trr=h('tr',{class:r._class||''}); cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
+    rows.forEach(r=>{ const trr=h('tr',{class:(r._class||'')+(opts.onRow&&!r._class?' clickable':'')}); if(opts.onRow&&!r._class){ trr.tabIndex=0; trr.addEventListener('click',()=>opts.onRow(r)); trr.addEventListener('keydown',e=>{ if(e.key==='Enter') opts.onRow(r); }); } cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
     t.append(tb); wrap.append(t);
     if(opts.empty && !rows.length) container.append(h('div',{class:'empty',text:opts.empty}));
   }
@@ -500,38 +583,44 @@ button.ghost.gold:hover{background:#dcc48f}
   function render(){
     const rows = slice(); const T = totals(rows);
     const payerSel=el('fPayer').value, provSel=el('fProvider').value, visitSel=el('fVisit').value;
-    const periodLabel = el('fPeriod').selectedOptions[0].textContent;
+    const periodLabel = rangeLabel();
     const parts=[periodLabel]; if(payerSel!=='') parts.push(D.dims.payer[+payerSel]); if(provSel!=='') parts.push(D.dims.provider[+provSel]); if(visitSel!=='') parts.push(D.dims.visit[+visitSel]);
     el('scope').textContent = 'Showing: '+parts.join(' · ');
     const S = {s1:css('--s1'),s2:css('--s2'),s3:css('--s3'),s4:css('--s4'),neutral:css('--s-neutral')};
 
     // KPIs
     const patients = (payerSel===''&&provSel===''&&visitSel===''&&el('fPeriod').value==='all') ? D.patientCount
-                   : (provSel===''&&visitSel===''&&el('fPeriod').value==='all'&&payerSel!=='') ? (D.patientsByPayer[payerSel]||0)
-                   : (payerSel===''&&provSel===''&&visitSel===''&&el('fPeriod').value.startsWith('m:')) ? (D.patientsByMonth[el('fPeriod').value.slice(2)]||0) : null;
+                   : (provSel===''&&visitSel===''&&el('fPeriod').value==='all'&&payerSel!=='') ? (D.patientsByPayer[payerSel]||null) : null;
+    const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
+    const patStatus = D.dims.status.indexOf('PAT');
+    const split = rows.reduce((a,c)=>{ const v=c[M.balanceDue]; if(isPatientPayer(c[K.payer])||c[K.status]===patStatus) a.pat+=v; else a.ins+=v; return a; },{ins:0,pat:0});
     const kp = [
       {l:'Billed', v:fmt.usd(T.billed), d:`${fmt.int(T.claims)} claims`, c:S.s1},
-      {l:'Collected', v:fmt.usd(T.payments), d:`${fmt.pct(T.billed>0?T.payments/T.billed:NaN)} of billed`, c:S.s2},
+      {l:'Collected', v:fmt.usd(T.payments), d:`Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}`, c:S.s2},
       {l:'Collection rate', v:fmt.pct(T.rate), d:'of billed after contractual adj.'},
       {l:'Contractual adjustments', v:fmt.usd(T.contractual), d:`${fmt.pct(T.billed>0?T.contractual/T.billed:NaN)} of billed`, c:S.s3},
       {l:'Write-offs', v:fmt.usd(T.writeoff), d:`${fmt.pct(T.billed>0?T.writeoff/T.billed:NaN)} of billed`, c:S.s4},
-      {l:'Balance still due', v:fmt.usd(T.balanceDue), d:'claims with an open balance'},
+      {l:'Balance still due', v:fmt.usd(T.balanceDue), d:`Insurance ${fmt.usd(split.ins)} · Patient ${fmt.usd(split.pat)}`},
       {l:'Net change in A/R', v:fmt.usd(T.arChange), d:'billed − collected − adjustments'},
-      {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'available for a single payer or month':'distinct patient accounts'},
+      {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'shown for all dates (whole practice or one payer)':'distinct patient accounts'},
     ];
     el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
 
-    // Monthly
+    // Monthly / weekly
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
-    const billed = ms.map(m=>sum(gm.get(m),'billed')), paid = ms.map(m=>sum(gm.get(m),'payments'));
-    if(ms.length){
+    const gw = group(rows,'week'); const wsel = weeks.filter(w=>gw.has(w));
+    const byWeek = gran==='week';
+    const gX = byWeek?gw:gm, xs = byWeek?wsel:ms, lab = byWeek?fmt.week:fmt.month, labLong = byWeek?fmt.weekLong:fmt.monthLong;
+    el('monthlyTitle').textContent = byWeek?'Billed vs. collected by week':'Billed vs. collected by month';
+    const billed = xs.map(m=>sum(gX.get(m),'billed')), paid = xs.map(m=>sum(gX.get(m),'payments'));
+    if(xs.length){
       const peak = billed.indexOf(Math.max(...billed));
-      columnChart(el('monthly'), ms.map(fmt.month), [{name:'Billed',values:billed,color:S.s1},{name:'Collected',values:paid,color:S.s2}],
-        {label:'Billed and collected by service month', title:ci=>fmt.monthLong(ms[ci]), extra:ci=>[['Collection rate', fmt.pct(totals(gm.get(ms[ci])).rate)],['Claims', fmt.int(sum(gm.get(ms[ci]),'claims'))]], directLabel:{ci:peak,si:0,text:fmt.usdc(billed[peak])}});
+      columnChart(el('monthly'), xs.map(lab), [{name:'Billed',values:billed,color:S.s1},{name:'Collected',values:paid,color:S.s2}],
+        {label:'Billed and collected by service '+gran, maxLabels: byWeek?10:12, title:ci=>(byWeek?'Week of ':'')+labLong(xs[ci]), extra:ci=>[['Collection rate', fmt.pct(totals(gX.get(xs[ci])).rate)],['Claims', fmt.int(sum(gX.get(xs[ci]),'claims'))]], directLabel:{ci:peak,si:0,text:fmt.usdc(billed[peak])}});
     } else el('monthly').innerHTML='<div class="empty">No claims in this selection.</div>';
     table(el('monthlyTable'), [
-      {label:'Month',key:'m'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
-    ], [...ms.map(m=>({m:fmt.monthLong(m),t:totals(gm.get(m))})), {m:'Total',t:T,_class:'total'}]);
+      {label:byWeek?'Week of':'Month',key:'m'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
+    ], [...xs.map(m=>({m:labLong(m),t:totals(gX.get(m))})), {m:'Total',t:T,_class:'total'}]);
 
     // Breakdown
     const bd = el('breakdown'); bd.innerHTML='';
@@ -541,7 +630,7 @@ button.ghost.gold:hover{background:#dcc48f}
     const st=h('div',{class:'stack',role:'img','aria-label':'Share of billed dollars'});
     segs.forEach(([n,v,c])=>{ const d=h('div',{style:`flex:${Math.max(v,0)} 0 0;background:${c}`}); hoverable(d,n,[['Amount',fmt.usd(v)],['Share of billed',fmt.pct(tot>0?v/tot:NaN)]]); st.append(d); });
     bd.append(st);
-    const lab=h('div',{class:'stack-labels'}); segs.forEach(([n,v,c])=>{ const it=h('div',{class:'it'}); it.append(h('i',{class:'swatch',style:'background:'+c})); const tx=h('div'); tx.append(h('b',{text:fmt.pct(tot>0?v/tot:NaN)}),document.createTextNode(n+' '),h('small',{text:fmt.usd(v)})); it.append(tx); lab.append(it); }); bd.append(lab);
+    const labWrap=h('div',{class:'stack-labels'}); segs.forEach(([n,v,c])=>{ const it=h('div',{class:'it'}); it.append(h('i',{class:'swatch',style:'background:'+c})); const tx=h('div'); tx.append(h('b',{text:fmt.pct(tot>0?v/tot:NaN)}),document.createTextNode(n+' '),h('small',{text:fmt.usd(v)})); it.append(tx); labWrap.append(it); }); bd.append(labWrap);
     el('breakdownNote').innerHTML = `<strong>Reading this:</strong> out of ${fmt.usd(T.billed)} billed, ${fmt.usd(T.payments)} has come in. Contractual adjustments are the part insurers never pay by contract; write-offs are amounts the clinic gave up. The remainder is what is still expected to come in${T.credits<0?` (net of ${fmt.usd(-T.credits)} in credits on claims paid above their period charges)`:''}.`;
 
     // Aging
@@ -555,8 +644,7 @@ button.ghost.gold:hover{background:#dcc48f}
     } else el('aging').innerHTML='<div class="empty">No open balance in this selection.</div>';
 
     // Insurance vs patient
-    const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
-    const ins = rows.filter(c=>!isPatientPayer(c[1])), pat = rows.filter(c=>isPatientPayer(c[1]));
+    const ins = rows.filter(c=>!isPatientPayer(c[K.payer])), pat = rows.filter(c=>isPatientPayer(c[K.payer]));
     const Ti=totals(ins), Tp=totals(pat);
     table(el('split'), [
       {label:'',key:'n'},{label:'Billed to insurance',num:1,render:r=>r.i},{label:'Billed to patient',num:1,render:r=>r.p}
@@ -567,7 +655,7 @@ button.ghost.gold:hover{background:#dcc48f}
       {n:'Collection rate', i:ratePill(Ti.rate), p:ratePill(Tp.rate)},
       {n:'Balance due', i:fmt.usd(Ti.balanceDue), p:fmt.usd(Tp.balanceDue)},
     ]);
-    el('split').append(h('div',{class:'note',html:`Across all claims in this selection, insurers paid <strong>${fmt.usd(T.payerPayments)}</strong> and patients paid <strong>${fmt.usd(T.patientPayments)}</strong> (patient payments include copays and balances on insurance claims).`}));
+    el('split').append(h('div',{class:'note',html:`Across all claims in this selection, insurers paid <strong>${fmt.usd(T.payerPayments)}</strong> and patients paid <strong>${fmt.usd(T.patientPayments)}</strong> (patient payments include copays and balances on insurance claims).<br><br>Of the <strong>${fmt.usd(T.balanceDue)}</strong> still due, <strong>${fmt.usd(split.ins)}</strong> is waiting on insurers and <strong>${fmt.usd(split.pat)}</strong> is owed by patients (claims billed to the patient directly, or moved to eCW status PAT, patient responsibility; status meaning to be confirmed with billing).`}));
 
     // Payers
     const gp = group(rows,'payer');
@@ -582,9 +670,47 @@ button.ghost.gold:hover{background:#dcc48f}
       {label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},
       {label:'',render:r=>r._class?'':(()=>{ const w=h('div'); w.append(inlineBar(r.t.billed,maxB)); const c=inlineBar(r.t.payments,maxB,'c'); c.style.marginTop='3px'; w.append(c); return w; })()},
       {label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
-    ], payerRows);
+    ], payerRows, {onRow:r=>openDetail('payer',r.name)});
     el('payers').querySelectorAll('td:nth-child(4)').forEach(td=>td.classList.add('bar-cell'));
     el('payers').append(h('div',{class:'legend',style:'margin-top:10px'},h('span',{},h('i',{class:'swatch',style:'background:var(--s1)'}),'Billed'),h('span',{},h('i',{class:'swatch',style:'background:var(--s2)'}),'Collected')));
+
+    // Visit notes by status (resource x visit status)
+    (function(){
+      const vs = D.dims.vstatus; const order = ['IV Locked','Check Out','IV Complete','IV in session','Check-In','Pending'];
+      const shown = order.filter(n=>vs.includes(n)); const otherIdx = vs.map((n,i)=>shown.includes(n)?-1:i).filter(i=>i>=0);
+      const g = group(rows,'resource');
+      const mk = (name, rs) => { const r={name, counts:{}, other:0, unbilled:0, t:totals(rs)}; rs.forEach(c=>{ const n=vs[c[K.vstatus]]; if(shown.includes(n)) r.counts[n]=(r.counts[n]||0)+c[M.claims]; else r.other+=c[M.claims]; if(c[M.billed]===0) r.unbilled+=c[M.claims]; }); return r; };
+      const out=[...g.entries()].map(([i,rs])=>mk(D.dims.resource[i],rs)).sort((a,b)=>b.t.claims-a.t.claims);
+      const tot=mk('Total',rows); tot._class='total'; out.push(tot);
+      const cols=[{label:'Resource / team',key:'name'},{label:'Visits',num:1,render:r=>fmt.int(r.t.claims)}];
+      shown.forEach(n=>cols.push({label:n,num:1,render:r=>r.counts[n]?fmt.int(r.counts[n]):'–'}));
+      if(otherIdx.length) cols.push({label:'Other',num:1,render:r=>r.other?fmt.int(r.other):'–'});
+      cols.push({label:'Not locked',num:1,render:r=>{ const nl=r.t.claims-(r.counts['IV Locked']||0)-(r.counts['Check Out']||0); return h('span',{class:'pill '+(nl===0?'good':nl/r.t.claims>0.2?'crit':'warn'),text:fmt.int(nl)}); }});
+      cols.push({label:'No charge yet',num:1,render:r=>r.unbilled?fmt.int(r.unbilled):'–'});
+      cols.push({label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)});
+      table(el('notes'), cols, out, {onRow:r=>openDetail('resource',r.name)});
+    })();
+
+    // Payments posted by payer / service / provider x month
+    (function(){
+      const dim = el('payRows').value;
+      const g = group(rows, dim);
+      const ms = months.filter(m=>gm.has(m));
+      const rowsP = [...g.entries()].map(([i,rs])=>{ const byM={}; rs.forEach(c=>{ byM[c[K.month]]=(byM[c[K.month]]||0)+c[M.payments]; }); const t=totals(rs); return {name:D.dims[dim][i], byM, t}; }).sort((a,b)=>b.t.payments-a.t.payments);
+      const topP = rowsP.slice(0,12), restP = rowsP.slice(12);
+      const fold = list => { const byM={}; list.forEach(r=>Object.entries(r.byM).forEach(([m,v])=>byM[m]=(byM[m]||0)+v)); return byM; };
+      const out=[...topP];
+      if(restP.length) out.push({name:`Other (${restP.length})`, byM:fold(restP), t:totals(restP.flatMap(r=>g.get(D.dims[dim].indexOf(r.name)))), _class:'other'});
+      out.push({name:'Total', byM:fold(rowsP), t:T, _class:'total'});
+      const cols=[{label:dim==='payer'?'Payer':dim==='visit'?'Service':'Provider',key:'name'}];
+      ms.forEach(m=>cols.push({label:fmt.month(m),num:1,render:r=>r.byM[m]?fmt.usd(r.byM[m]):'–'}));
+      cols.push({label:'Total posted',num:1,render:r=>h('strong',{text:fmt.usd(r.t.payments)})});
+      cols.push({label:'From insurer',num:1,render:r=>fmt.usd(r.t.payerPayments)});
+      cols.push({label:'From patient',num:1,render:r=>fmt.usd(r.t.patientPayments)});
+      cols.push({label:'Of billed',num:1,render:r=>fmt.pct(r.t.billed>0?r.t.payments/r.t.billed:NaN)});
+      table(el('payments'), cols, out);
+      if(!rowsP.length) el('payments').innerHTML='<div class="empty">No payments in this selection.</div>';
+    })();
 
     // Visits
     const gv = group(rows,'visit');
@@ -592,12 +718,12 @@ button.ghost.gold:hover{background:#dcc48f}
     const vtop=vrow.slice(0,12), vrest=vrow.slice(12); const vrows=[...vtop];
     if(vrest.length) vrows.push({name:`Other (${vrest.length} services)`,t:totals(vrest.flatMap(r=>gv.get(D.dims.visit.indexOf(r.name)))),_class:'other'});
     vrows.push({name:'Total',t:T,_class:'total'});
-    table(el('visits'), [{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], vrows);
+    table(el('visits'), [{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], vrows, {onRow:r=>openDetail('visit',r.name)});
 
     // Providers
     const gpr = group(rows,'provider');
     const prrows=[...gpr.entries()].map(([i,rs])=>({name:D.dims.provider[i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed); prrows.push({name:'Total',t:T,_class:'total'});
-    table(el('providers'), [{label:'Provider',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], prrows);
+    table(el('providers'), [{label:'Provider',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}], prrows, {onRow:r=>openDetail('provider',r.name)});
 
     // Statuses
     const gs = group(rows,'status');
@@ -605,6 +731,53 @@ button.ghost.gold:hover{background:#dcc48f}
     table(el('statuses'), [{label:'Status code',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Net A/R change',num:1,render:r=>fmt.usd(r.t.arChange)}], srows);
   }
 
+
+
+  // ---------- drill-down detail ----------
+  function openDetail(dim, name){
+    const idx = D.dims[dim].indexOf(name); if(idx<0) return;
+    const rows = slice().filter(c=>c[K[dim]]===idx); const T=totals(rows);
+    const label = {payer:'Payer detail',visit:'Service detail',provider:'Provider detail',resource:'Resource / team detail'}[dim];
+    el('dEyebrow').textContent=label; el('dTitle').textContent=name;
+    el('dSub').textContent = el('scope').textContent.replace('Showing: ','Within: ');
+    const body=el('dBody'); body.innerHTML='';
+    // KPI strip
+    const k=h('div',{class:'grid kpis',style:'margin-bottom:22px'});
+    [['Billed',fmt.usd(T.billed),`${fmt.int(T.claims)} claims`],['Collected',fmt.usd(T.payments),`insurer ${fmt.usd(T.payerPayments)} · patient ${fmt.usd(T.patientPayments)}`],['Collection rate',fmt.pct(T.rate),'of billed after contractual adj.'],['Balance due',fmt.usd(T.balanceDue),`contractual ${fmt.usd(T.contractual)} · write-offs ${fmt.usd(T.writeoff)}`]].forEach(([l,v,d])=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:l}),h('div',{class:'v',text:v}),h('div',{class:'d',text:d})); k.append(t); });
+    body.append(k);
+    // Diagnosis
+    const zero = rows.reduce((a,c)=>a+(c[M.billed]===0?c[M.claims]:0),0);
+    const ga=group(rows,'aging'); const due=T.balanceDue||1; const over90=[3,4,5].reduce((a,i)=>a+(ga.has(i)?sum(ga.get(i),'balanceDue'):0),0); const over180=0;
+    const adjShare = T.billed>0 ? T.contractual/T.billed : 0;
+    const findings=[];
+    if(T.billed>0 && T.payments===0 && adjShare<0.01) findings.push(`<strong>Nothing has been adjudicated.</strong> ${fmt.usd(T.billed)} billed, $0 paid and only ${fmt.usd(T.contractual)} in adjustments. When a payer processes a claim, even to deny it, eCW posts an adjustment line. None here means the claims never reached the payer, were rejected at the clearinghouse, or are pended with no response posted. Call the payer with three claim numbers to find out which.`);
+    else if(T.billed>0 && T.payments/T.billed<0.1 && adjShare<0.05) findings.push(`<strong>Almost no response from the payer.</strong> Only ${fmt.pct(T.payments/T.billed)} of billed has been paid and adjustments are ${fmt.pct(adjShare)} of billed, so most of these claims have not been adjudicated yet. Check clearinghouse rejections, payer ID and whether claims are pended for records or authorization.`);
+    else if(T.billed>0 && adjShare>0.3 && T.rate<0.5) findings.push(`<strong>The payer is adjudicating but allowing little.</strong> ${fmt.pct(adjShare)} of billed was written down as contractual adjustment and collection on the remainder is ${fmt.pct(T.rate)}. Look at denial reasons and whether the allowed amounts match the contract.`);
+    else if(T.rate>=0.5) findings.push(`<strong>This one is working.</strong> Collection rate ${fmt.pct(T.rate)} after contractual adjustments. The open balance is mostly timing.`);
+    if(zero>0) findings.push(`<strong>${fmt.int(zero)} claims have no charge entered yet.</strong> They show in eCW but nothing has been billed for them (usually IVs waiting for charge entry).`);
+    if(T.balanceDue>0) findings.push(`<strong>${fmt.pct(over90/due)} of the open balance is older than 90 days</strong> (${fmt.usd(over90)}). Commercial payers often limit timely filing and appeals to 90–180 days.`);
+    if(T.writeoff>0 && T.billed>0) findings.push(`Write-offs so far: ${fmt.usd(T.writeoff)} (${fmt.pct(T.writeoff/T.billed)} of billed).`);
+    const n=h('div',{class:'note',style:'margin:0 0 22px'}); n.innerHTML='<strong>Reading:</strong><ul style="margin:8px 0 0 18px;padding:0">'+findings.map(f=>`<li style="margin:4px 0">${f}</li>`).join('')+'</ul>'; body.append(n);
+    const sec=(title,hint)=>{ body.append(h('h3',{style:'margin:22px 0 2px;font-size:16px;font-weight:600',text:title})); if(hint) body.append(h('p',{class:'hint',style:'margin:2px 0 10px',text:hint})); const d=h('div'); body.append(d); return d; };
+    const stdCols=[{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}];
+    const byDim=(d2, names, sortKey)=>{ const g=group(rows,d2); const out=[...g.entries()].map(([i,rs])=>({name:names[i],t:totals(rs)})).sort((a,b)=>b.t[sortKey]-a.t[sortKey]); out.push({name:'Total',t:T,_class:'total'}); return out; };
+    if(dim==='payer'){ const og=new Map(); rows.forEach(c=>{ const o=c[ORIG]; if(!og.has(o)) og.set(o,[]); og.get(o).push(c); }); if(og.size>1){ const o=[...og.entries()].map(([i,rs])=>({name:D.dims.payerOrig[i],t:totals(rs)})).sort((a,b)=>b.t.billed-a.t.billed); o.push({name:'Total',t:T,_class:'total'}); table(sec('Payer names as recorded in eCW','This insurer appears under more than one name in eCW; they are combined on the dashboard.'),[{label:'eCW payer name',key:'name'},...stdCols],o); } }
+    if(dim==='resource'){ const gv2=group(rows,'vstatus'); const vrows2=[...gv2.entries()].map(([i,rs])=>({name:D.dims.vstatus[i],t:totals(rs),unb:rs.reduce((a,c)=>a+(c[M.billed]===0?c[M.claims]:0),0)})).sort((a,b)=>b.t.claims-a.t.claims); vrows2.push({name:'Total',t:T,unb:zero,_class:'total'}); table(sec('By visit status','Locked and checked-out notes can be billed; the rest are still open.'),[{label:'Visit status',key:'name'},{label:'Visits',num:1,render:r=>fmt.int(r.t.claims)},{label:'No charge yet',num:1,render:r=>r.unb?fmt.int(r.unb):'–'},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)}],vrows2);
+      const gw2=group(rows,'week'); const wrows=weeks.filter(w=>gw2.has(w)).map(w=>({name:fmt.weekLong(w),t:totals(gw2.get(w)),nl:gw2.get(w).reduce((a,c)=>a+(['IV Locked','Check Out'].includes(D.dims.vstatus[c[K.vstatus]])?0:c[M.claims]),0)})).reverse(); table(sec('By week','Most recent week first.'),[{label:'Week',key:'name'},{label:'Visits',num:1,render:r=>fmt.int(r.t.claims)},{label:'Not locked',num:1,render:r=>r.nl?fmt.int(r.nl):'–'},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)}],wrows); }
+    table(sec('By eCW claim status','Where the claims sit in the eCW workflow. Codes are shown as exported; their meaning is to be confirmed with billing.'),[{label:'Status code',key:'name'},...stdCols],byDim('status',D.dims.status,'balanceDue'));
+    if(dim!=='visit') table(sec('By service'),[{label:'Service',key:'name'},...stdCols],byDim('visit',D.dims.visit,'billed').slice(0,13).concat([]).filter((r,i,a)=>r._class||i<12).concat(byDim('visit',D.dims.visit,'billed').filter(r=>r._class)).filter((r,i,a)=>a.findIndex(x=>x.name===r.name)===i));
+    if(dim!=='payer') table(sec('By payer'),[{label:'Payer',key:'name'},...stdCols],byDim('payer',D.dims.payer,'billed'));
+    const gm=group(rows,'month'); const mrows=months.filter(m=>gm.has(m)).map(m=>({name:fmt.monthLong(m),t:totals(gm.get(m))})); mrows.push({name:'Total',t:T,_class:'total'});
+    table(sec('By month of service'),[{label:'Month',key:'name'},...stdCols],mrows);
+    // Line detail (most granular level available on this page)
+    const lines=rows.map(c=>({month:fmt.week(c[K.week]),payer:D.dims.payerOrig[c[ORIG]],visit:D.dims.visit[c[K.visit]],provider:D.dims.provider[c[K.provider]],status:D.dims.status[c[K.status]],vstatus:D.dims.vstatus[c[K.vstatus]],aging:D.agingBuckets[c[K.aging]],claims:c[M.claims],billed:c[M.billed],paid:c[M.payments],due:c[M.balanceDue]})).sort((a,b)=>b.due-a.due).slice(0,200);
+    table(sec('Line detail','Each line is a group of claims with the same week, payer, service, provider, status and age. Sorted by balance due; top 200 lines.'),[{label:'Week of',key:'month'},{label:'Payer',key:'payer'},{label:'Service',key:'visit'},{label:'Provider',key:'provider'},{label:'Claim status',key:'status'},{label:'Visit status',key:'vstatus'},{label:'Age',key:'aging'},{label:'Claims',num:1,render:r=>fmt.int(r.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.paid)},{label:'Balance due',num:1,render:r=>fmt.usd(r.due)}],lines);
+    body.append(h('div',{class:'note',html:'Individual claim numbers and patient accounts are not included on this page because it is published on a public site. The same drill-down can show claim-by-claim detail on a private copy.'}));
+    el('detailModal').classList.add('open'); document.body.style.overflow='hidden'; el('detailModal').scrollTop=0;
+  }
+  const closeDetail=()=>{ el('detailModal').classList.remove('open'); document.body.style.overflow=''; };
+  el('dClose').onclick=closeDetail; el('detailModal').addEventListener('click',e=>{ if(e.target===el('detailModal')) closeDetail(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&el('detailModal').classList.contains('open')) closeDetail(); });
 
   // ---------- eCW aging report (static, whole practice) ----------
   function renderAging(){
@@ -690,6 +863,7 @@ button.ghost.gold:hover{background:#dcc48f}
   })();
 
   el('monthlyToggle').onclick = () => { const t=el('monthlyTable'); t.hidden=!t.hidden; el('monthlyToggle').textContent = t.hidden?'Show as table':'Hide table'; el('monthlyToggle').setAttribute('aria-expanded',String(!t.hidden)); };
+  document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ gran=b.dataset.g; document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
   let rt; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(render,200); });
   render();
 })();

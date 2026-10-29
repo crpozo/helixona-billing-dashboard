@@ -122,7 +122,7 @@ def main():
     as_of = (datetime.date.fromisoformat(a.as_of) if a.as_of
              else max(r[COLS["claim"]] for r in claims).date())
 
-    dims = {k: {} for k in ("payer", "provider", "visit", "status", "resource")}
+    dims = {k: {} for k in ("payer", "provider", "visit", "status", "resource", "vstatus")}
 
     def idx(dim, value):
         d = dims[dim]
@@ -131,16 +131,19 @@ def main():
         return d[value]
 
     cells = collections.defaultdict(lambda: [0.0] * 10)
-    pts_overall, pts_payer, pts_month = set(), collections.defaultdict(set), collections.defaultdict(set)
+    pts_overall, pts_payer, pts_month, pts_week = set(), collections.defaultdict(set), collections.defaultdict(set), collections.defaultdict(set)
     for r in claims:
-        month = r[COLS["service"]].strftime("%Y-%m")
-        age = (as_of - r[COLS["service"]].date()).days
+        sd = r[COLS["service"]].date()
+        month = sd.strftime("%Y-%m")
+        week = (sd - datetime.timedelta(days=sd.weekday())).isoformat()  # Monday of the service week
+        age = (as_of - sd).days
         aging = next(i for i, (lim, _) in enumerate(AGING) if age <= lim)
-        key = (month, idx("payer", clean(r[COLS["payer"]])),
+        key = (month, week, idx("payer", clean(r[COLS["payer"]])),
                idx("provider", clean(r[COLS["provider"]])),
                idx("visit", visit_label(r[COLS["visit"]])),
                idx("status", clean(r[COLS["status"]])),
-               idx("resource", clean(r[COLS["resource"]])), aging)
+               idx("resource", clean(r[COLS["resource"]])), aging,
+               idx("vstatus", visit_label(r[COLS["vstatus"]])))
         c = cells[key]
         ar = r[COLS["ar"]] or 0
         c[0] += 1
@@ -157,6 +160,7 @@ def main():
         pts_overall.add(pid)
         pts_payer[key[1]].add(pid)
         pts_month[month].add(pid)
+        pts_week[week].add(pid)
 
     out = {
         "source": title,
@@ -172,6 +176,8 @@ def main():
                      "contractual", "writeoff", "arChange", "balanceDue", "credits"],
         "patientsByPayer": {str(k): len(v) for k, v in pts_payer.items()},
         "patientsByMonth": {k: len(v) for k, v in pts_month.items()},
+        "patientsByWeek": {k: len(v) for k, v in pts_week.items()},
+        "keys": ["month", "week", "payer", "provider", "visit", "status", "resource", "aging", "vstatus"],
         "cells": [list(k) + [round(x, 2) for x in v] for k, v in sorted(cells.items())],
     }
     if a.aging:
