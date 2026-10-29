@@ -100,24 +100,41 @@ def main():
     wb = openpyxl.load_workbook(a.xlsx, read_only=True, data_only=True)
     ws = wb.worksheets[0]
     rows = list(ws.iter_rows(values_only=True))
-    title = rows[0][0]
-    period = " ".join(str(x) for x in rows[1][1:4] if x)
-    header_idx = next(i for i, r in enumerate(rows) if r[0] == "Payer Name")
+    header_idx = next(i for i, r in enumerate(rows) if "Payer Name" in r and "Claim No" in r)
+    header = list(rows[header_idx])
+    title = rows[0][0] if header_idx > 0 and rows[0][0] else "361.05 Financial Analysis at Claim Level"
+    period = " ".join(str(x) for x in rows[1][1:4] if x) if header_idx > 1 else ""
+    # Column lookup by header name: eCW exports the same report with different layouts.
+    def col(name, *alts):
+        for n in (name,) + alts:
+            if n in header:
+                return header.index(n)
+        raise SystemExit(f"column not found: {name}")
+    C = dict(payer=col("Payer Name"), patient=col("Patient Name"), visit=col("Visit Type"), vstatus=col("Visit Status"),
+             service=col("Service Date"), claim=col("Claim Date"), status=col("Current Claim Status"), facility=col("Facility"),
+             provider=col("Appointment / Servicing Provider"), resource=col("Resource Provider"), claimno=col("Claim No"),
+             acct=col("Patient Acct No"), billed=col("Billed Charge"), payments=col("Payments"), payer_pay=col("Payer Payment"),
+             patient_pay=col("Patient Payment"), contractual=col("Contractual Adjustment"), writeoff=col("Writeoff Adjustment"), ar=col("Change in A/R"))
+    COLS.update(C)
     body = rows[header_idx + 1:]
 
-    # Forward-fill the merged "group" columns and drop footer rows.
-    ff = [None] * 4
+    # Forward-fill the merged "group" columns (older layout) and drop footer/total rows.
+    group_cols = [C["payer"], C["patient"], C["visit"], C["vstatus"]]
+    ff = {i: None for i in group_cols}
     claims = []
     for r in body:
-        if r[COLS["claimno"]] is None or r[COLS["service"]] is None:
+        if r[C["claimno"]] is None or r[C["service"]] is None or not hasattr(r[C["service"]], "date"):
             continue
         r = list(r)
-        for i in range(4):
+        for i in group_cols:
             if r[i] is None:
                 r[i] = ff[i]
             else:
                 ff[i] = r[i]
         claims.append(r)
+    if not period:
+        lo = min(r[C["service"]] for r in claims).date(); hi = max(r[C["service"]] for r in claims).date()
+        period = f"service dates {lo:%b %d, %Y} to {hi:%b %d, %Y}"
 
     as_of = (datetime.date.fromisoformat(a.as_of) if a.as_of
              else max(r[COLS["claim"]] for r in claims).date())
