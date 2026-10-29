@@ -610,7 +610,7 @@ button.ghost.gold:hover{background:#dcc48f}
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
     const gw = group(rows,'week'); const wsel = weeks.filter(w=>gw.has(w));
     const byWeek = gran==='week';
-    const nz = (g,list) => { const live=list.map(m=>sum(g.get(m),'billed')+sum(g.get(m),'payments')>0); const a=live.indexOf(true), b=live.lastIndexOf(true); return a<0?[]:list.slice(a,b+1); };
+    const nz = (g,list) => { const live=list.map(m=>sum(g.get(m),'billed')+sum(g.get(m),'payments')>1); const a=live.indexOf(true), b=live.lastIndexOf(true); return a<0?[]:list.slice(a,b+1); };
     const gX = byWeek?gw:gm, xs = byWeek?nz(gw,wsel):nz(gm,ms), lab = byWeek?fmt.week:fmt.month, labLong = byWeek?fmt.weekLong:fmt.monthLong;
     el('monthlyTitle').textContent = byWeek?'Billed vs. collected by week':'Billed vs. collected by month';
     const billed = xs.map(m=>sum(gX.get(m),'billed')), paid = xs.map(m=>sum(gX.get(m),'payments'));
