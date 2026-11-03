@@ -122,6 +122,10 @@ rect.bar{cursor:pointer;transition:opacity .12s}
 rect.bar:hover,rect.bar:focus{opacity:.78;outline:none}
 .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--page);padding:8px 10px;border-radius:9px;font-size:12.5px;line-height:1.4;box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:50;max-width:260px;display:none}
 .tip b{font-weight:600;font-size:13px}
+.tip .hp{margin-top:4px;max-width:300px}
+.tip .hx{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18);opacity:.85;max-width:300px}
+.has-help{cursor:help;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:var(--gold-2)}
+.tip{max-width:340px}
 .tip .row{display:flex;justify-content:space-between;gap:14px}
 .tip .k{display:inline-flex;align-items:center;gap:6px;opacity:.85}
 .tip .k i{width:12px;height:2px;border-radius:1px;display:inline-block}
@@ -158,6 +162,7 @@ tr.other td{color:var(--ink-2)}
 .gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 32px}
 .gloss div{font-size:13.5px;color:var(--ink-2);line-height:1.5}
 .gloss b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.gloss small{color:var(--muted);font-size:12.5px}
 footer{color:var(--muted);font-size:12.5px;margin-top:40px;max-width:90ch;line-height:1.55}
 .empty{color:var(--muted);padding:30px;text-align:center}
 .toggle{margin-top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:none;border-bottom:1px solid var(--gold-2);cursor:pointer;padding:0 0 2px;font-family:inherit}
@@ -387,15 +392,16 @@ button.ghost.gold:hover{background:#dcc48f}
     <h2>How to read these numbers</h2>
     <p class="hint">Short definitions of every figure on this page.</p>
     <div class="gloss">
-      <div><b>Billed</b>Total charges sent out for the claims in the selection, at the clinic's full fee schedule, before any insurer discount.</div>
-      <div><b>Collected</b>Money actually received on those claims from insurers and patients combined.</div>
-      <div><b>Contractual adjustments</b>The part of the fee that insurers never pay because the contract rate is lower than the fee schedule. Not a loss, it was never collectible.</div>
-      <div><b>Write-offs</b>Amounts the clinic chose to give up: denials not appealed, courtesy discounts, small balances, timely-filing losses. This is real money lost.</div>
-      <div><b>Collection rate</b>Collected ÷ (Billed − Contractual adjustments). The share of what was realistically collectible that has actually come in.</div>
-      <div><b>Balance still due</b>Sum of the open balances on claims that still owe money. The amount still being worked.</div>
-      <div><b>Net change in A/R</b>Billed − Collected − Contractual − Write-offs. How much the receivables balance grew over the period, net of credits.</div>
+      <div><b>Billed</b>Total charges sent out at the clinic's full fee schedule, before any insurer discount.<br><small>Example: a Mito Boost infusion billed to Blue Shield at $1,650.</small></div>
+      <div><b>Collected</b>Money that actually came in on those claims, from insurers and patients.<br><small>Blue Shield paid $420 and the patient a $50 copay: Collected = $470.</small></div>
+      <div><b>Contractual adjustments</b>The insurer's contract discount: the part of the fee that was never going to be paid because the contracted rate is lower. Not a loss, it is the real price of the service with that insurer.<br><small>Blue Shield's allowed amount is $900: Contractual = $750.</small></div>
+      <div><b>Write-offs</b>Money that was collectible and the clinic chose to give up: denials not appealed, late filing, small balances, courtesy discounts. Real money lost.<br><small>$200 denied for missing authorization and never appealed: Write-off = $200.</small></div>
+      <div><b>Balance still due</b>What is still open and someone owes, insurer or patient. Billed always equals Collected + Contractual + Write-offs + Balance due.<br><small>$1,650 − 470 − 750 − 200 = $230 still due.</small></div>
+      <div><b>Collection rate</b>Collected ÷ (Billed − Contractual). Of what was realistic to collect, how much came in. The contract discount is excluded because that money never existed.<br><small>$470 ÷ ($1,650 − $750) = 52%.</small></div>
+      <div><b>Net change in A/R</b>Billed − Collected − Contractual − Write-offs. How much the receivable grew over the period, net of credits.</div>
       <div><b>Open balance by age</b>Balance still due, grouped by how long ago the service happened. The older the bucket, the harder it is to collect.</div>
       <div><b>Outstanding (A/R)</b>The official total of every unpaid balance in eCW on the report date, aged by claim date. The number to quote as "what we are owed".</div>
+      <div><b>How to read a payer row</b>High contractual with a low balance: the payer adjudicates and pays. Low contractual with a high balance: the payer has not responded. High write-offs: money was let go, ask why.</div>
       <div><b>Claim status code</b>The workflow state eCW assigned to the claim (submitted, paid, denied, patient balance, etc.). Meaning of each code to be confirmed with billing.</div>
     </div>
   </section>
@@ -550,6 +556,7 @@ button.ghost.gold:hover{background:#dcc48f}
   const showTip = (e, title, rows) => { tip.innerHTML=''; tip.append(h('b',{text:title})); rows.forEach(([k,v,color])=>{ const r=h('div',{class:'row'}); const kk=h('span',{class:'k'}); if(color){ kk.append(h('i',{style:'background:'+color})); } kk.append(document.createTextNode(k)); r.append(kk, h('strong',{text:v})); tip.append(r); }); tip.style.display='block'; moveTip(e); };
   const moveTip = e => { const w=tip.offsetWidth, hh=tip.offsetHeight; let x=e.clientX+14, y=e.clientY+14; if(x+w>innerWidth-8) x=e.clientX-w-14; if(y+hh>innerHeight-8) y=e.clientY-hh-14; tip.style.left=x+'px'; tip.style.top=y+'px'; };
   const hideTip = () => tip.style.display='none';
+  document.addEventListener('click',e=>{ if(!e.target.closest('.has-help')) hideTip(); });
   const hoverable = (node, title, rows) => { node.addEventListener('pointerenter',e=>showTip(e,title,rows)); node.addEventListener('pointermove',moveTip); node.addEventListener('pointerleave',hideTip); node.setAttribute('tabindex','0'); node.addEventListener('focus',e=>{ const r=node.getBoundingClientRect(); showTip({clientX:r.left+r.width/2,clientY:r.top},title,rows); }); node.addEventListener('blur',hideTip); };
   const css = v => getComputedStyle(root).getPropertyValue(v).trim();
 
@@ -588,30 +595,44 @@ button.ghost.gold:hover{background:#dcc48f}
     container.append(svg);
   }
 
+  // Column and KPI definitions. Shown as a tooltip on hover (desktop) or tap (phone), each with the same worked example:
+  // a Mito Boost infusion billed to Blue Shield at $1,650.
+  const EX = 'Example: Mito Boost billed to Blue Shield at $1,650.';
   const TH_HELP = {
-    'Billed':'Total charges sent out at the full fee schedule, before any insurer discount.',
-    'Collected':'Payments actually received on these claims, insurer and patient combined.',
-    'Contractual':'Insurer discount: the part of the fee the contract says is never paid. Not a loss, it was never collectible.',
-    'Write-offs':'Amounts the clinic gave up: denials not appealed, courtesy discounts, small balances, timely-filing losses. Real money lost.',
-    'Balance due':'Open balance still owed on these claims.',
-    'Rate':'Collection rate = Collected ÷ (Billed − Contractual). Share of what was realistically collectible that has come in.',
-    'Net A/R change':'Billed − Collected − Contractual − Write-offs for the period.',
-    'Outstanding':'Open balance per the eCW aging report.',
-    'Over 90 d':'Share of the outstanding balance older than 90 days.',
-    'Claims':'Number of claims (one per visit/encounter billed).',
-    'Total posted':'All payments received on these claims.',
-    'From insurer':'Payments received from the insurance company.',
-    'From patient':'Payments received from the patient (copays, coinsurance, self-pay).',
-    'Of billed':'Payments ÷ Billed.',
-    'Not locked':'Visits whose note is not yet locked or checked out, so they cannot be billed yet.',
-    'No charge yet':'Visits that exist in eCW but have $0 billed: the charge has not been entered.',
-    'Visits':'Number of visits (appointments) in eCW, billed or not.',
+    'Billed':{what:'Total charges sent out at the clinic\u2019s full fee schedule, before any insurer discount.', ex:EX+' Billed = $1,650.'},
+    'Collected':{what:'Money that actually came in on these claims, from the insurer and from the patient.', ex:EX+' Blue Shield paid $420 and the patient paid a $50 copay. Collected = $470.'},
+    'Contractual':{what:'The insurer\u2019s contract discount: the part of the fee that was never going to be paid because the contracted rate is lower than the fee schedule. Not a loss, it is the real price of the service with that insurer.', ex:EX+' Blue Shield\u2019s allowed amount is $900, so Contractual = $750.'},
+    'Contractual adjustments':{what:'The insurer\u2019s contract discount: the part of the fee that was never going to be paid because the contracted rate is lower than the fee schedule. Not a loss, it is the real price of the service with that insurer.', ex:EX+' Blue Shield\u2019s allowed amount is $900, so Contractual = $750.'},
+    'Write-offs':{what:'Money that was collectible and the clinic chose to give up: a denial that was not appealed, a claim filed too late, a small balance not worth chasing, a courtesy discount. This is real money lost.', ex:EX+' Blue Shield denied $200 for missing authorization and nobody appealed. Write-off = $200.'},
+    'Balance due':{what:'What is still open and someone owes, the insurer or the patient.', ex:EX+' $1,650 \u2212 $470 \u2212 $750 \u2212 $200 = $230 still due.'},
+    'Balance still due':{what:'What is still open and someone owes, the insurer or the patient.', ex:EX+' $1,650 \u2212 $470 \u2212 $750 \u2212 $200 = $230 still due.'},
+    'Rate':{what:'Collection rate = Collected \u00f7 (Billed \u2212 Contractual). Of what was realistic to collect, how much came in. The contract discount is excluded because that money never existed.', ex:EX+' $470 \u00f7 ($1,650 \u2212 $750) = 52%.'},
+    'Collection rate':{what:'Collected \u00f7 (Billed \u2212 Contractual). Of what was realistic to collect, how much came in. The contract discount is excluded because that money never existed.', ex:EX+' $470 \u00f7 ($1,650 \u2212 $750) = 52%.'},
+    'Net A/R change':{what:'Billed \u2212 Collected \u2212 Contractual \u2212 Write-offs. How much the receivable grew over the period, net of credits.', ex:EX+' $1,650 \u2212 $470 \u2212 $750 \u2212 $200 = $230.'},
+    'Net change in A/R':{what:'Billed \u2212 Collected \u2212 Contractual \u2212 Write-offs. How much the receivable grew over the period, net of credits.', ex:EX+' $1,650 \u2212 $470 \u2212 $750 \u2212 $200 = $230.'},
+    'Outstanding':{what:'Open balance per the official eCW aging report, aged by claim date.', ex:'Quote this number as \u201cwhat we are owed\u201d.'},
+    'Over 90 d':{what:'Share of the outstanding balance older than 90 days. Commercial payers often limit timely filing and appeals to 90\u2013180 days, so the older the bucket, the less likely it is collected.', ex:''},
+    'Claims':{what:'Number of claims. One claim per visit billed.', ex:''},
+    'Total posted':{what:'All payments received on these claims, insurer and patient.', ex:''},
+    'From insurer':{what:'Payments received from the insurance company.', ex:''},
+    'From patient':{what:'Payments received from the patient: copays, coinsurance, self-pay.', ex:''},
+    'Of billed':{what:'Payments \u00f7 Billed, before removing the contract discount. Always lower than the collection rate.', ex:''},
+    'Not locked':{what:'Visits whose note is not yet locked or checked out, so they cannot be billed yet.', ex:''},
+    'No charge yet':{what:'Visits that exist in eCW but have $0 billed in this export: the charge has not been entered, or the report does not carry it.', ex:''},
+    'Visits':{what:'Number of visits (appointments) in eCW, billed or not.', ex:''},
+    'Patients':{what:'Distinct patient accounts with at least one claim in the selection.', ex:''},
   };
+  TH_HELP['Still open (net)']=TH_HELP['Net A/R change'];
+  const helpTip = (node, label) => { const hlp=TH_HELP[label]; if(!hlp) return; node.classList.add('has-help');
+    const show=e=>{ tip.innerHTML=''; tip.append(h('b',{text:label})); tip.append(h('div',{class:'hp',text:hlp.what})); if(hlp.ex) tip.append(h('div',{class:'hx',text:hlp.ex})); tip.style.display='block'; moveTip(e); };
+    node.addEventListener('pointerenter',show); node.addEventListener('pointermove',moveTip); node.addEventListener('pointerleave',hideTip);
+    node.addEventListener('click',e=>{ if(matchMedia('(hover: none)').matches){ e.stopPropagation(); if(tip.style.display==='block'){ hideTip(); } else show(e); } });
+    node.setAttribute('tabindex','0'); node.addEventListener('focus',e=>{ const r=node.getBoundingClientRect(); show({clientX:r.left,clientY:r.bottom}); }); node.addEventListener('blur',hideTip); };
   function table(container, cols, rows, opts={}){
     container.innerHTML='';
     const wrap=h('div',{class:'table-wrap'}); container.append(wrap);
     const t=h('table'); const thead=h('thead'); const tr=h('tr');
-    cols.forEach(c=>{ const th=h('th',{class:c.num?'n':'' ,text:c.label}); const help=TH_HELP[c.label]; if(help){ th.title=help; th.style.cursor='help'; th.style.textDecoration='underline dotted'; th.style.textUnderlineOffset='3px'; } tr.append(th); }); thead.append(tr); t.append(thead);
+    cols.forEach(c=>{ const th=h('th',{class:c.num?'n':'' ,text:c.label}); helpTip(th, c.label); tr.append(th); }); thead.append(tr); t.append(thead);
     const tb=h('tbody');
     rows.forEach(r=>{ const trr=h('tr',{class:(r._class||'')+(opts.onRow&&!r._class?' clickable':'')}); if(opts.onRow&&!r._class){ trr.tabIndex=0; trr.addEventListener('click',()=>opts.onRow(r)); trr.addEventListener('keydown',e=>{ if(e.key==='Enter') opts.onRow(r); }); } cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
     t.append(tb); wrap.append(t);
@@ -646,7 +667,7 @@ button.ghost.gold:hover{background:#dcc48f}
       {l:'Net change in A/R', v:fmt.usd(T.arChange), d:'billed − collected − adjustments'},
       {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'shown for all dates (whole practice or one payer)':'distinct patient accounts'},
     ];
-    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
+    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
 
     // Monthly / weekly
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
