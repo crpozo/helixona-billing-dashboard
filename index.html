@@ -481,8 +481,9 @@ button.ghost.gold:hover{background:#dcc48f}
   el('themeBtn').onclick = () => { const dark = el('themeBtn').textContent==='Light mode'; const t = dark?'light':'dark'; try{ localStorage.setItem('hx-theme',t);}catch(e){} applyTheme(t); render(); };
 
   // ---------- filters ----------
-  // Period presets are relative to the report date (the last day covered by the export).
-  const REF = (()=>{ const [y,m,d]=D.asOf.split('-'); return new Date(+y,+m-1,+d); })();
+  // Period presets are relative to today; the data only runs through the report date, which the scope line states.
+  const DATA_END = (()=>{ const [y,m,d]=D.asOf.split('-'); return new Date(+y,+m-1,+d); })();
+  const REF = (()=>{ const t=new Date(); return new Date(t.getFullYear(),t.getMonth(),t.getDate()); })();
   const iso = d => d.toISOString().slice(0,10);
   const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
   const monday = d => addDays(d, -((d.getDay()+6)%7));
@@ -506,7 +507,7 @@ button.ghost.gold:hover{background:#dcc48f}
   const activeRange = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; if(o.range==='custom'){ const f=el('fFrom').value, t=el('fTo').value; if(!f&&!t) return null; const F=f?new Date(f+'T00:00:00'):new Date(2000,0,1), T=t?new Date(t+'T00:00:00'):new Date(2100,0,1); return [F,T]; } return o.range; };
   // A cell covers a service week (Monday..Sunday); it is included when that week overlaps the range.
   const weekTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return w => { const wEnd=iso(addDays(new Date(w+'T00:00:00'),6)); return wEnd>=from && w<=to; }; };
-  const rangeLabel = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; const r=activeRange(); if(!r) return o.label; const f=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); return (o.range==='custom'?'':o.label+': ')+f(r[0])+' – '+f(r[1]); };
+  const rangeLabel = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; const r=activeRange(); const f=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); if(!r) return o.label+' (through '+f(DATA_END)+')'; const tail = r[1]>DATA_END ? ' · data through '+f(DATA_END) : ''; return (o.range==='custom'?'':o.label+': ')+f(r[0])+' – '+f(r[1])+tail; };
   const fill = (sel, opts, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); opts.forEach((o,i)=>sel.append(h('option',{value:String(i),text:o}))); };
   const byTotal = (dim, measure) => { const t={}; cells.forEach(c=>{ t[c[K[dim]]]=(t[c[K[dim]]]||0)+c[M[measure]]; }); return Object.keys(t).map(Number).sort((a,b)=>t[b]-t[a]); };
   el('fPeriod').innerHTML=''; periodOpts.forEach(o=>el('fPeriod').append(h('option',{value:o.id,text:o.label})));
@@ -681,7 +682,7 @@ button.ghost.gold:hover{background:#dcc48f}
       const peak = billed.indexOf(Math.max(...billed));
       columnChart(el('monthly'), xs.map(lab), [{name:'Billed',values:billed,color:S.s1},{name:'Collected',values:paid,color:S.s2}],
         {label:'Billed and collected by service '+gran, maxLabels: byWeek?10:12, title:ci=>(byWeek?'Week of ':'')+labLong(xs[ci]), extra:ci=>[['Collection rate', fmt.pct(totals(gX.get(xs[ci])).rate)],['Claims', fmt.int(sum(gX.get(xs[ci]),'claims'))]], directLabel:{ci:peak,si:0,text:fmt.usdc(billed[peak])}});
-    } else el('monthly').innerHTML='<div class="empty">No claims in this selection.</div>';
+    } else el('monthly').innerHTML='<div class="empty">No claims in this selection. The export runs through '+DATA_END.toLocaleString('en-US',{month:'long',day:'numeric',year:'numeric'})+'.</div>';
     table(el('monthlyTable'), [
       {label:byWeek?'Week of':'Month',key:'m'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}
     ], [...xs.map(m=>({m:labLong(m),t:totals(gX.get(m))})), {m:'Total',t:T,_class:'total'}]);
