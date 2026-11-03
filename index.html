@@ -85,6 +85,7 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 .custom-range{display:flex;gap:10px}
 .custom-range input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:10px 12px;min-width:150px}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
+.filters .basis{flex:1 1 100%;font-size:12.5px;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:8px 12px;line-height:1.45}
 .grid{display:grid;gap:24px}
 .grid>*{min-width:0}
 .section{margin-top:32px}
@@ -276,6 +277,7 @@ button.ghost.gold:hover{background:#dcc48f}
     <label>Service <div class="ms" id="fVisit"></div></label>
     <button class="ghost reset" id="reset" type="button">Reset</button>
     <div class="scope" id="scope"></div>
+    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. A cash-by-posting-date view needs a payments report from eCW and is not included yet.</div>
   </section>
 
   <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
@@ -283,7 +285,7 @@ button.ghost.gold:hover{background:#dcc48f}
   <section class="grid two section">
     <div class="card">
       <div class="card-head">
-        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service. Collected = all payments posted on those claims (insurance + patient).</p></div>
+        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service: each column is the month (or week) the service happened, and “Collected” is everything paid so far on those claims. Recent months look low partly because their claims have not been adjudicated yet.</p></div>
         <div class="legend"><span class="seg" role="group" aria-label="Granularity"><button type="button" class="on" data-g="month">Month</button><button type="button" data-g="week">Week</button></span><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
       </div>
       <div id="monthly"></div>
