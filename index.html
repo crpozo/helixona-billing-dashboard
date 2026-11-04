@@ -82,7 +82,21 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 .ms-list .sub{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ms-list .none{padding:14px;color:var(--muted);font-size:13px}
 @media (max-width:760px){.ms-pop{position:fixed;left:16px;right:16px;top:auto;bottom:16px;width:auto;max-height:70vh}}
-.custom-range{display:flex;gap:10px}
+.ms.period .ms-pop{width:max(100%,560px);max-height:none;padding-bottom:10px}
+.pp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;padding:4px 10px 0}
+.pp-col h4{margin:10px 6px 4px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pp-col button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;font:inherit;font-size:13.5px;color:var(--ink);background:none;border:0;border-radius:8px;padding:7px 8px;cursor:pointer;letter-spacing:0;text-transform:none}
+.pp-col button:hover{background:var(--surface-3)}
+.pp-col button.on{background:var(--black);color:#fff}
+.pp-col button .r{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-col button.on .r{color:rgba(255,255,255,.7)}
+.pp-custom{margin:12px 10px 0;padding:12px 12px 10px;border-top:1px solid var(--grid)}
+.pp-custom h4{margin:0 0 8px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pp-custom .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.pp-custom label{display:flex;flex-direction:column;gap:4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pp-custom input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;min-width:150px}
+.pp-custom .hint2{font-size:12px;color:var(--muted);margin-top:8px}
+@media (max-width:760px){.ms.period .ms-pop{width:auto;max-height:80vh;overflow-y:auto}.pp-grid{grid-template-columns:1fr}}
 .custom-range input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:10px 12px;min-width:150px}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
 .filters .basis{flex:1 1 100%;font-size:12.5px;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:8px 12px;line-height:1.45}
@@ -277,8 +291,7 @@ button.ghost.gold:hover{background:#dcc48f}
 </div>
 <div class="wrap">
   <section class="filters" aria-label="Filters">
-    <label>Period <select id="fPeriod"></select></label>
-    <div id="customRange" class="custom-range" hidden><label>From <input type="date" id="fFrom"></label><label>To <input type="date" id="fTo"></label></div>
+    <label>Period <div class="ms period" id="fPeriod"></div></label>
     <label>Payer <div class="ms" id="fPayer"></div></label>
     <label>Provider <div class="ms" id="fProvider"></div></label>
     <label>Service <div class="ms" id="fVisit"></div></label>
@@ -520,30 +533,56 @@ button.ghost.gold:hover{background:#dcc48f}
   const firstOfMonth = (d,off=0) => new Date(d.getFullYear(), d.getMonth()+off, 1);
   const lastOfMonth = (d,off=0) => new Date(d.getFullYear(), d.getMonth()+off+1, 0);
   const thisMon = monday(REF);
-  const periodOpts = [
-    {id:'all', label:'All dates in export', range:null},
+  const fmtD = d => d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const fmtR = r => fmtD(r[0])+' – '+fmtD(r[1]);
+  const monthName = (y,m) => new Date(y,m,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+  const quick = [
     {id:'tw', label:'This week', range:[thisMon, addDays(thisMon,6)]},
     {id:'lw', label:'Last week', range:[addDays(thisMon,-7), addDays(thisMon,-1)]},
     {id:'l4w', label:'Last 4 weeks', range:[addDays(thisMon,-28), addDays(thisMon,-1)]},
-    {id:'mtd', label:'Month to date', range:[firstOfMonth(REF), REF]},
+    {id:'tm', label:'This month', range:[firstOfMonth(REF), lastOfMonth(REF)]},
     {id:'lm', label:'Last month', range:[firstOfMonth(REF,-1), lastOfMonth(REF,-1)]},
     {id:'l3m', label:'Last 3 months', range:[firstOfMonth(REF,-3), lastOfMonth(REF,-1)]},
-    {id:'ytd', label:'2026 year to date', range:[new Date(2026,0,1), REF]},
-    {id:'q3', label:'Jul – Sep 2026', range:[new Date(2026,6,1), new Date(2026,8,30)]},
-    {id:'h1', label:'Jan – Jun 2026', range:[new Date(2026,0,1), new Date(2026,5,30)]},
-    {id:'2025', label:'2025 (Jul – Dec)', range:[new Date(2025,6,1), new Date(2025,11,31)]},
-    {id:'custom', label:'Custom range…', range:'custom'},
+    {id:'ytd', label:'Year to date', range:[new Date(REF.getFullYear(),0,1), REF]},
+    {id:'all', label:'All data', range:null},
   ];
-  const activeRange = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; if(o.range==='custom'){ const f=el('fFrom').value, t=el('fTo').value; if(!f&&!t) return null; const F=f?new Date(f+'T00:00:00'):new Date(2000,0,1), T=t?new Date(t+'T00:00:00'):new Date(2100,0,1); return [F,T]; } return o.range; };
+  // Every month and quarter that has data, newest first.
+  const firstData = (()=>{ const [y,m,d]=weeks[0].split('-'); return new Date(+y,+m-1,+d); })();
+  const dataStart = new Date(Math.max(firstData, new Date(2025,6,1)));
+  const monthsList=[]; for(let d=firstOfMonth(DATA_END); d>=firstOfMonth(dataStart); d=firstOfMonth(d,-1)) monthsList.push({id:'m:'+d.getFullYear()+'-'+(d.getMonth()+1), label:monthName(d.getFullYear(),d.getMonth()), range:[d, lastOfMonth(d)]});
+  const quarters=[]; for(let d=new Date(DATA_END.getFullYear(), Math.floor(DATA_END.getMonth()/3)*3, 1); d>=new Date(dataStart.getFullYear(), Math.floor(dataStart.getMonth()/3)*3, 1); d=new Date(d.getFullYear(), d.getMonth()-3, 1)) quarters.push({id:'q:'+d.getFullYear()+'-'+(Math.floor(d.getMonth()/3)+1), label:'Q'+(Math.floor(d.getMonth()/3)+1)+' '+d.getFullYear(), range:[d, lastOfMonth(d,2)]});
+  const periodOpts = [...quick, ...monthsList, ...quarters, {id:'custom', label:'Custom range', range:'custom'}];
+  const periodState = {id:'all', from:'', to:''};
+  const activeRange = () => { const o=periodOpts.find(o=>o.id===periodState.id)||quick[quick.length-1]; if(o.range==='custom'){ const f=periodState.from, t=periodState.to; if(!f&&!t) return null; const F=f?new Date(f+'T00:00:00'):new Date(2000,0,1), T=t?new Date(t+'T00:00:00'):new Date(2100,0,1); return F<=T?[F,T]:[T,F]; } return o.range; };
   // A cell covers a service week (Monday..Sunday); it is included when that week overlaps the range.
   const dayTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return d => d>=from && d<=to; };
   const weekTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return w => { const wEnd=iso(addDays(new Date(w+'T00:00:00'),6)); return wEnd>=from && w<=to; }; };
-  const rangeLabel = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; const r=activeRange(); const f=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); if(!r) return o.label+' (through '+f(DATA_END)+')'; const tail = r[1]>DATA_END ? ' · data through '+f(DATA_END) : ''; return (o.range==='custom'?'':o.label+': ')+f(r[0])+' – '+f(r[1])+tail; };
+  const rangeLabel = () => { const o=periodOpts.find(o=>o.id===periodState.id)||quick[quick.length-1]; const r=activeRange(); if(!r) return 'All data (through '+fmtD(DATA_END)+')'; const tail = r[1]>DATA_END ? ' · data through '+fmtD(DATA_END) : ''; return (o.range==='custom'?'Custom: ':o.label+': ')+fmtR(r)+tail; };
   const fill = (sel, opts, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); opts.forEach((o,i)=>sel.append(h('option',{value:String(i),text:o}))); };
   const byTotal = (dim, measure) => { const t={}; cells.forEach(c=>{ t[c[K[dim]]]=(t[c[K[dim]]]||0)+c[M[measure]]; }); return Object.keys(t).map(Number).sort((a,b)=>t[b]-t[a]); };
-  el('fPeriod').innerHTML=''; periodOpts.forEach(o=>el('fPeriod').append(h('option',{value:o.id,text:o.label})));
-  el('fPeriod').addEventListener('change',()=>{ el('customRange').hidden = el('fPeriod').value!=='custom'; });
-  el('fFrom').min=weeks[0]; el('fTo').max=D.asOf;
+  // Period picker: quick ranges, months, quarters and a custom range in one panel.
+  (function(){
+    const root=el('fPeriod'); const btn=h('button',{class:'ms-btn',type:'button','aria-haspopup':'dialog'}); const txt=h('span',{class:'txt'}); btn.append(txt,h('span',{class:'car'}));
+    const pop=h('div',{class:'ms-pop'}); const grid=h('div',{class:'pp-grid'});
+    const col=(title,opts)=>{ const c=h('div',{class:'pp-col'}); c.append(h('h4',{text:title})); opts.forEach(o=>{ const b=h('button',{type:'button','data-id':o.id}); b.append(h('span',{text:o.label}), h('span',{class:'r',text:o.range?(o.range[0].getMonth()===o.range[1].getMonth()&&o.range[0].getDate()===1?'' : fmtR(o.range).replace(/, \d{4}/g,'')):'through '+fmtD(DATA_END).replace(/, \d{4}/,'')})); b.onclick=()=>{ choose(o.id); close(); }; c.append(b); }); return c; };
+    const left=h('div'); left.append(col('Quick ranges',quick)); const right=h('div'); right.append(col('Months',monthsList.slice(0,8))); right.append(col('Quarters',quarters));
+    grid.append(left,right);
+    const cust=h('div',{class:'pp-custom'}); cust.append(h('h4',{text:'Custom range'}));
+    const row=h('div',{class:'row'}); const fi=h('input',{type:'date',id:'fFrom',min:iso(dataStart),max:D.asOf}); const ti=h('input',{type:'date',id:'fTo',min:iso(dataStart),max:D.asOf});
+    const lf=h('label',{text:'From'}); lf.append(fi); const lt=h('label',{text:'To'}); lt.append(ti);
+    const apply=h('button',{class:'ghost gold',type:'button',text:'Apply'}); apply.onclick=()=>{ if(!fi.value&&!ti.value) return; periodState.id='custom'; periodState.from=fi.value; periodState.to=ti.value; mark(); close(); root.dispatchEvent(new Event('change')); };
+    row.append(lf,lt,apply); cust.append(row, h('div',{class:'hint2',text:'Data runs '+fmtD(dataStart)+' to '+fmtD(DATA_END)+'. Leave one date empty for an open range.'}));
+    pop.append(grid,cust); root.append(btn,pop);
+    const mark=()=>{ pop.querySelectorAll('.pp-col button').forEach(b=>b.classList.toggle('on',b.dataset.id===periodState.id)); const o=periodOpts.find(o=>o.id===periodState.id); txt.textContent = periodState.id==='custom' ? fmtR(activeRange()||[dataStart,DATA_END]) : (o?o.label:'All data'); };
+    const choose=id=>{ periodState.id=id; mark(); root.dispatchEvent(new Event('change')); };
+    const open=()=>{ document.querySelectorAll('.ms.open').forEach(x=>{ if(x!==root) x.classList.remove('open'); }); root.classList.add('open'); };
+    const close=()=>root.classList.remove('open');
+    btn.onclick=()=>root.classList.contains('open')?close():open();
+    document.addEventListener('click',e=>{ if(!root.contains(e.target)) close(); });
+    root.addEventListener('keydown',e=>{ if(e.key==='Escape'){ close(); btn.focus(); } });
+    root._reset=()=>{ periodState.id='all'; periodState.from=''; periodState.to=''; fi.value=''; ti.value=''; mark(); };
+    mark();
+  })();
   const payerOrder = byTotal('payer','billed'), provOrder = byTotal('provider','billed'), visitOrder = byTotal('visit','billed');
   // Searchable multi-select filter. value: Set of indices, or null for "all".
   function multiSelect(id, order, names, allLabel, noun, sub){
@@ -570,9 +609,9 @@ button.ghost.gold:hover{background:#dcc48f}
     provider: multiSelect('fProvider', provOrder, D.dims.provider, 'All providers', 'providers', billedBy('provider')),
     visit: multiSelect('fVisit', visitOrder, D.dims.visit, 'All services', 'services', billedBy('visit')),
   };
-  ['fPeriod','fPayer','fProvider','fVisit','fFrom','fTo'].forEach(id=>el(id).addEventListener('change',render));
+  ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).addEventListener('change',render));
   el('payRows').addEventListener('change',render);
-  el('reset').onclick=()=>{ el('fPeriod').value='all'; el('fFrom').value=''; el('fTo').value=''; F.payer.reset(); F.provider.reset(); F.visit.reset(); el('customRange').hidden=true; render(); };
+  el('reset').onclick=()=>{ el('fPeriod')._reset(); F.payer.reset(); F.provider.reset(); F.visit.reset(); render(); };
 
   const slice = () => {
     const wt = weekTest(activeRange());
@@ -689,8 +728,8 @@ button.ghost.gold:hover{background:#dcc48f}
     const S = {s1:css('--s1'),s2:css('--s2'),s3:css('--s3'),s4:css('--s4'),neutral:css('--s-neutral')};
 
     // KPIs
-    const patients = (!payerSel&&!provSel&&!visitSel&&el('fPeriod').value==='all') ? D.patientCount
-                   : (!provSel&&!visitSel&&el('fPeriod').value==='all'&&payerSel&&payerSel.size===1) ? (D.patientsByPayer[[...payerSel][0]]||null) : null;
+    const patients = (!payerSel&&!provSel&&!visitSel&&periodState.id==='all') ? D.patientCount
+                   : (!provSel&&!visitSel&&periodState.id==='all'&&payerSel&&payerSel.size===1) ? (D.patientsByPayer[[...payerSel][0]]||null) : null;
     const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
     const patStatus = D.dims.status.indexOf('PAT');
     const split = rows.reduce((a,c)=>{ const v=c[M.balanceDue]; if(isPatientPayer(c[K.payer])||c[K.status]===patStatus) a.pat+=v; else a.ins+=v; return a; },{ins:0,pat:0});
