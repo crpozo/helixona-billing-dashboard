@@ -1,0 +1,63 @@
+Hi all,
+
+Below are the answers to the weekly questions. Source: eCW claim-level export of November 3 and the F&M Bank statement through October 30. Everything here is also on the dashboard (https://crpozo.github.io/helixona-billing-dashboard/) with the "Last week" filter.
+
+1. WHAT WAS BILLED LAST WEEK
+
+162 encounters, 99 patients, $222,172 billed.
+
+By insurance company:
+  Blue Shield of California        35 claims   $55,789
+  Aetna                             4 claims   $48,258
+  Blue Cross California            35 claims   $31,004
+  Cigna                            14 claims   $30,984
+  Anthem Blue Cross                19 claims   $19,698
+  United Health Care                8 claims   $13,600
+  Medicare Part B                  27 claims   $13,280
+  UMR                               4 claims    $6,441
+  United Healthcare                 2 claims    $2,682
+  ILWU-PMA                          2 claims      $436
+
+By service: Mito Boost 54 claims, $157,611 (71% of the week). Foundational Flow 25, 15 claims, $18,754. Follow-up visits 20, $7,321. IV Vitamin C 75g, Diagnostics, Trigger Point Injections, Foundational Flow 50 and 20, Cellular Boost, Core Restore and Mini Mito Custom make up the rest.
+
+2. WHAT WAS NOT BILLED FROM LAST WEEK'S LOCKED ENCOUNTERS
+
+12 locked encounters have no charge entered: 7 "IV Cash Add On", 2 lab draws, 1 Essential Amino, 1 Vitamin C 50g, 1 Erchonia Laser. They sit on IV-1 (5), IV-2 (4), IV Blue Shield room (2) and the laser (1). Ten are patient-pay, two are AARP Medicare. At typical fees that is about $2,100, so the week is essentially fully charged.
+
+The older backlog is small too: 25 unbilled open encounters since September 2025, 16 of them InnerFlow sessions. Nothing unbilled remains from the four weeks before last.
+
+3. TOTAL COLLECTED LAST WEEK, BY TYPE OF PAYMENT (cash that reached the bank)
+
+  Week of    Total      Insurance EFT   Checks     Patient cards   RepeatMD
+  Sep 28     $65,318    $34,549         $18,425    $4,634          $7,710
+  Oct 5      $84,261    $36,011         $39,748    $3,446          $4,012
+  Oct 12     $35,084    $18,657         $11,229    $3,528          $1,670
+  Oct 19     $30,876    $17,009          $7,936    $2,830          $1,124
+  Oct 26     $49,993    $23,202         $19,368    $5,210          $2,213
+
+Last week's insurance EFTs were Anthem/Blue Cross CA $17,090 and Medicare $6,112. The two check deposits ($13,823 and $5,545) are not identified on the statement; the bank check images will tell us whether they are Blue Shield or Cigna. Patient cards (Global Payments) carry copays and cash-pay treatments together; RepeatMD carries packages and memberships. eCW cannot split copays from treatments on patient card deposits, so for now "patient cards" is the combined figure.
+
+For reference, eCW only shows $280 of payments on last week's own encounters, which is expected: insurers have not adjudicated them yet.
+
+4. UNLOCKED NOTES, BY PERSON/TEAM
+
+From last week, 7 encounters are still open: Mira Aguilar 3 (Check-In), IV-1 2 (1 Check-In, 1 IV in session), Diagnostics 1, Dr. Drannikov 1.
+
+One caution on the backlog number: eCW shows 1,253 older encounters still in Check-In or Pending status, 978 of them under Dr. Drannikov. 1,228 of those were billed anyway ($536K), so they are a status-hygiene issue in eCW, not unbilled work. The real unbilled backlog is the 25 encounters mentioned in point 2.
+
+5. VOLUME OF TREATMENTS, WEEK OVER WEEK (encounters)
+
+  Week of    Total   IVs   EBOO   Nano baths   Other
+  Sep 28     140      96     2    –            42
+  Oct 5      170     108     9    –            53
+  Oct 12     138     120     6    –            12
+  Oct 19     153     115     3    –            35
+  Oct 26     162     100     2    –            60
+
+IVs include Mito Boost, Foundational Flows, Vitamin C, Essential Amino, Cellular Boost, Core Restore, Migraine and similar infusion types. "Other" is mostly follow-up visits (63 in five weeks), trigger point injections (38), Erchonia laser, FPE follow-ups, telemedicine and new-patient visits. There is no visit type in eCW named "Nano bath"; please tell me which visit type it corresponds to (BioMod, Lymph-star, BioCharger?) and I will track it separately.
+
+6. VOLUME BOOKED FOR THIS WEEK AS OF MONDAY
+
+Not available from these reports. The claim export only contains encounters that already happened (it shows 16 for Monday Nov 2, all IVs). To report bookings as of Monday we need an eCW appointment or schedule export for the coming week (Reports > Appointments, by resource, for Nov 2–8). If someone can send that each Monday morning, this line becomes automatic.
+
+Carlos
