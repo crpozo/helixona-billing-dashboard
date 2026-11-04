@@ -56,8 +56,4 @@ One caution on the backlog number: eCW shows 1,253 older encounters still in Che
 
 IVs include Mito Boost, Foundational Flows, Vitamin C, Essential Amino, Cellular Boost, Core Restore, Migraine and similar infusion types. "Other" is mostly follow-up visits (63 in five weeks), trigger point injections (38), Erchonia laser, FPE follow-ups, telemedicine and new-patient visits. There is no visit type in eCW named "Nano bath"; please tell me which visit type it corresponds to (BioMod, Lymph-star, BioCharger?) and I will track it separately.
 
-6. VOLUME BOOKED FOR THIS WEEK AS OF MONDAY
-
-Not available from these reports. The claim export only contains encounters that already happened (it shows 16 for Monday Nov 2, all IVs). To report bookings as of Monday we need an eCW appointment or schedule export for the coming week (Reports > Appointments, by resource, for Nov 2–8). If someone can send that each Monday morning, this line becomes automatic.
-
 Carlos
