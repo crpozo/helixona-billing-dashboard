@@ -74,6 +74,7 @@ def main():
     out = dict(
         account='Helixona Inc operating account (F&M Bank)',
         months=sorted(set(s['month'] for s in summaries)),
+        lastDate=max(r['date'] for r in rows),
         statementTotals={s['month']: dict(deposits=round(s['deposits'], 2), debits=round(s['debits'], 2)) for s in summaries},
         categories=[dict(id=i, label=l) for i, l in CATS],
         cells=[dict(month=k[0], week=k[1], cat=k[2], source=k[3], n=v[0], amount=round(v[1], 2)) for k, v in sorted(agg.items())],

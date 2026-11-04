@@ -94,6 +94,8 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px 20px;box-shadow:var(--shadow)}
+.tile.hero{border-color:var(--gold);background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--gold)}
+.tile.hero .v{color:var(--ink)}
 .tile .l{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
 .tile .v{font-family:"Cormorant Garamond",Georgia,serif;font-size:38px;font-weight:500;line-height:1.1;margin-top:12px;font-variant-numeric:lining-nums}
 .tile .d{font-size:13px;color:var(--ink-2);margin-top:8px}
@@ -282,33 +284,15 @@ button.ghost.gold:hover{background:#dcc48f}
     <label>Service <div class="ms" id="fVisit"></div></label>
     <button class="ghost reset" id="reset" type="button">Reset</button>
     <div class="scope" id="scope"></div>
-    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. Cash by the date it actually arrived is in the “Deposits in the bank account” section below, built from the bank statements.</div>
+    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. The “Cash received” tile and the “Deposits in the bank account” section are the exception: they come from the bank statements and count money by the date it arrived.</div>
   </section>
 
   <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
 
-  <section class="grid two section">
-    <div class="card">
-      <div class="card-head">
-        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service: each column is the month (or week) the service happened, and “Collected” is everything paid so far on those claims. Recent months look low partly because their claims have not been adjudicated yet.</p></div>
-        <div class="legend"><span class="seg" role="group" aria-label="Granularity"><button type="button" class="on" data-g="month">Month</button><button type="button" data-g="week">Week</button></span><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
-      </div>
-      <div id="monthly"></div>
-      <button class="toggle" id="monthlyToggle" type="button" aria-expanded="false">Show as table</button>
-      <div id="monthlyTable" hidden></div>
-    </div>
-    <div class="card">
-      <h2>Where the billed dollars went</h2>
-      <p class="hint">Share of every billed dollar in the selected slice.</p>
-      <div id="breakdown"></div>
-      <div class="note" id="breakdownNote"></div>
-    </div>
-  </section>
-
   <section class="card section" id="bankSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Cash received</div><h2>Deposits in the bank account</h2><p class="hint" id="bankHint"></p></div>
-      <div class="legend"><span class="pill" id="bankScope">Basis: deposit date · follows the Period filter only</span></div>
+      <div class="legend"><span class="pill" id="bankScope">Basis: deposit date, exact days · follows the Period filter only</span></div>
     </div>
     <div class="grid kpis" id="bankKpis" style="margin:18px 0 0"></div>
     <hr class="sep">
@@ -329,6 +313,25 @@ button.ghost.gold:hover{background:#dcc48f}
         <div id="recon"></div>
         <div class="note" id="reconNote"></div>
       </div>
+    </div>
+  </section>
+
+
+  <section class="grid two section">
+    <div class="card">
+      <div class="card-head">
+        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service: each column is the month (or week) the service happened, and “Collected” is everything paid so far on those claims. Recent months look low partly because their claims have not been adjudicated yet.</p></div>
+        <div class="legend"><span class="seg" role="group" aria-label="Granularity"><button type="button" class="on" data-g="month">Month</button><button type="button" data-g="week">Week</button></span><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
+      </div>
+      <div id="monthly"></div>
+      <button class="toggle" id="monthlyToggle" type="button" aria-expanded="false">Show as table</button>
+      <div id="monthlyTable" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Where the billed dollars went</h2>
+      <p class="hint">Share of every billed dollar in the selected slice.</p>
+      <div id="breakdown"></div>
+      <div class="note" id="breakdownNote"></div>
     </div>
   </section>
 
@@ -533,6 +536,7 @@ button.ghost.gold:hover{background:#dcc48f}
   ];
   const activeRange = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; if(o.range==='custom'){ const f=el('fFrom').value, t=el('fTo').value; if(!f&&!t) return null; const F=f?new Date(f+'T00:00:00'):new Date(2000,0,1), T=t?new Date(t+'T00:00:00'):new Date(2100,0,1); return [F,T]; } return o.range; };
   // A cell covers a service week (Monday..Sunday); it is included when that week overlaps the range.
+  const dayTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return d => d>=from && d<=to; };
   const weekTest = range => { if(!range) return ()=>true; const from=iso(range[0]), to=iso(range[1]); return w => { const wEnd=iso(addDays(new Date(w+'T00:00:00'),6)); return wEnd>=from && w<=to; }; };
   const rangeLabel = () => { const o=periodOpts.find(o=>o.id===el('fPeriod').value)||periodOpts[0]; const r=activeRange(); const f=d=>d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'}); if(!r) return o.label+' (through '+f(DATA_END)+')'; const tail = r[1]>DATA_END ? ' · data through '+f(DATA_END) : ''; return (o.range==='custom'?'':o.label+': ')+f(r[0])+' – '+f(r[1])+tail; };
   const fill = (sel, opts, allLabel) => { sel.innerHTML=''; sel.append(h('option',{value:'',text:allLabel})); opts.forEach((o,i)=>sel.append(h('option',{value:String(i),text:o}))); };
@@ -627,6 +631,8 @@ button.ghost.gold:hover{background:#dcc48f}
   // a Mito Boost infusion billed to Blue Shield at $1,650.
   const EX = 'Example: Mito Boost billed to Blue Shield at $1,650.';
   const TH_HELP = {
+    'Cash received':{what:'Money that actually arrived in the bank account during the period, by deposit date, from the bank statements. Insurance EFTs, check deposits, patient card payments and RepeatMD. Transfers between Helixona accounts and loans are excluded.', ex:'This is the cash view: what came in this week or this month, whatever service it paid for.'},
+    'Collected on these claims':{what:'Payments posted so far on the claims whose service date is in the period, from eCW. For recent periods this is low because insurers have not adjudicated yet.', ex:EX+' Blue Shield paid $420 and the patient a $50 copay: Collected = $470.'},
     'Billed':{what:'Total charges sent out at the clinic\u2019s full fee schedule, before any insurer discount.', ex:EX+' Billed = $1,650.'},
     'Collected':{what:'Money that actually came in on these claims, from the insurer and from the patient.', ex:EX+' Blue Shield paid $420 and the patient paid a $50 copay. Collected = $470.'},
     'Contractual':{what:'The insurer\u2019s contract discount: the part of the fee that was never going to be paid because the contracted rate is lower than the fee schedule. Not a loss, it is the real price of the service with that insurer.', ex:EX+' Blue Shield\u2019s allowed amount is $900, so Contractual = $750.'},
@@ -688,17 +694,18 @@ button.ghost.gold:hover{background:#dcc48f}
     const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
     const patStatus = D.dims.status.indexOf('PAT');
     const split = rows.reduce((a,c)=>{ const v=c[M.balanceDue]; if(isPatientPayer(c[K.payer])||c[K.status]===patStatus) a.pat+=v; else a.ins+=v; return a; },{ins:0,pat:0});
+    const bank = D.bank ? (()=>{ const dt=dayTest(activeRange()); const rs=D.bank.cells.filter(c=>dt(c.date)); const g=cat=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0); const ins=g('insurance'), chk=g('checks'), pat=g('patient_card')+g('patient_other'), oth=g('other_income'); const r=activeRange(); const lastBank=D.bank.lastDate||(D.bank.months[D.bank.months.length-1]+'-31'); const beyond = r && iso(r[1])>lastBank; return {total:ins+chk+pat+oth,ins,chk,pat,oth,beyond,lastBank}; })() : null;
     const kp = [
+      ...(bank?[{l:'Cash received', v:fmt.usd(bank.total), d:`Insurance EFT ${fmt.usdc(bank.ins)} · Checks ${fmt.usdc(bank.chk)} · Patients ${fmt.usdc(bank.pat)}`+(bank.beyond?` · bank data through ${fmt.week(bank.lastBank)}`:''), hero:true}]:[]),
       {l:'Billed', v:fmt.usd(T.billed), d:`${fmt.int(T.claims)} claims`, c:S.s1},
-      {l:'Collected', v:fmt.usd(T.payments), d:`Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}`, c:S.s2},
+      {l:'Collected on these claims', v:fmt.usd(T.payments), d:`Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}`, c:S.s2},
       {l:'Collection rate', v:fmt.pct(T.rate), d:'of billed after contractual adj.'},
       {l:'Contractual adjustments', v:fmt.usd(T.contractual), d:`${fmt.pct(T.billed>0?T.contractual/T.billed:NaN)} of billed`, c:S.s3},
       {l:'Write-offs', v:fmt.usd(T.writeoff), d:`${fmt.pct(T.billed>0?T.writeoff/T.billed:NaN)} of billed`, c:S.s4},
       {l:'Balance still due', v:fmt.usd(T.balanceDue), d:`Insurance ${fmt.usd(split.ins)} · Patient ${fmt.usd(split.pat)}`},
-      {l:'Net change in A/R', v:fmt.usd(T.arChange), d:'billed − collected − adjustments'},
       {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'shown for all dates (whole practice or one payer)':'distinct patient accounts'},
     ];
-    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
+    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'+(k.hero?' hero':'')}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
 
     // Monthly / weekly
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
@@ -850,7 +857,7 @@ button.ghost.gold:hover{background:#dcc48f}
   function renderBank(){
     const B=D.bank; if(!B) return; el('bankSection').hidden=false;
     const S={s1:css('--s1'),s2:css('--s2'),s3:css('--s3'),s4:css('--s4'),neutral:css('--s-neutral')};
-    const wt=weekTest(activeRange()); const rows=B.cells.filter(c=>wt(c.week));
+    const dt=dayTest(activeRange()); const rows=B.cells.filter(c=>dt(c.date));
     const revenueCats=['insurance','checks','patient_card','patient_other','other_income'];
     const sumCat=(rs,cat)=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0);
     const total=revenueCats.reduce((a,c)=>a+sumCat(rows,c),0);

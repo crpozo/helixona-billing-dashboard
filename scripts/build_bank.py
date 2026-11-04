@@ -70,13 +70,14 @@ def main():
         s, r = parse(pdf); summaries.append(s); rows.extend(r)
     agg = collections.defaultdict(lambda: [0, 0.0])
     for r in rows:
-        k = (r['month'], r['week'], r['cat'], r['source']); agg[k][0] += 1; agg[k][1] += r['amount']
+        k = (r['month'], r['week'], r['date'], r['cat'], r['source']); agg[k][0] += 1; agg[k][1] += r['amount']
     out = dict(
         account='Helixona Inc operating account (F&M Bank)',
         months=sorted(set(s['month'] for s in summaries)),
+        lastDate=max(r['date'] for r in rows),
         statementTotals={s['month']: dict(deposits=round(s['deposits'], 2), debits=round(s['debits'], 2)) for s in summaries},
         categories=[dict(id=i, label=l) for i, l in CATS],
-        cells=[dict(month=k[0], week=k[1], cat=k[2], source=k[3], n=v[0], amount=round(v[1], 2)) for k, v in sorted(agg.items())],
+        cells=[dict(month=k[0], week=k[1], date=k[2], cat=k[3], source=k[4], n=v[0], amount=round(v[1], 2)) for k, v in sorted(agg.items())],
     )
     json.dump(out, open(a.out, 'w'), separators=(',', ':'))
     if a.detail: json.dump(dict(summaries=summaries, deposits=rows), open(a.detail, 'w'), indent=0)
