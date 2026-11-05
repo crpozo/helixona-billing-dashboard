@@ -158,6 +158,9 @@ td.bar-cell{width:30%;min-width:120px}
 .inline-bar i.c{background:var(--s2)}
 tr.total td{font-weight:600;border-top:2px solid var(--axis)}
 tr.clickable{cursor:pointer}
+.tile.clickable{cursor:pointer;transition:border-color .15s}
+.tile.clickable:hover,.tile.clickable:focus-visible{border-color:var(--gold);outline:none}
+.tile.clickable .d::after{content:'  ›';color:var(--gold-2);font-weight:600}
 tr.clickable:hover td{background:var(--surface-3)}
 tr.clickable td:first-child::after{content:' ›';color:var(--gold-2);font-weight:600}
 tr.other td{color:var(--ink-2)}
@@ -300,6 +303,7 @@ button.ghost.gold:hover{background:#dcc48f}
     <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. The “Cash received” tile and the “Deposits in the bank account” section are the exception: they come from the bank statements and count money by the date it arrived.</div>
   </section>
 
+  <p class="hint" style="margin:0 0 10px">Click any figure to see how it is built and why it differs from the others.</p>
   <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
 
   <section class="card section" id="bankSection" hidden>
@@ -710,7 +714,7 @@ button.ghost.gold:hover{background:#dcc48f}
     const t=h('table'); const thead=h('thead'); const tr=h('tr');
     cols.forEach(c=>{ const th=h('th',{class:c.num?'n':'' ,text:c.label}); helpTip(th, c.label); tr.append(th); }); thead.append(tr); t.append(thead);
     const tb=h('tbody');
-    rows.forEach(r=>{ const trr=h('tr',{class:(r._class||'')+(opts.onRow&&!r._class?' clickable':'')}); if(opts.onRow&&!r._class){ trr.tabIndex=0; trr.addEventListener('click',()=>opts.onRow(r)); trr.addEventListener('keydown',e=>{ if(e.key==='Enter') opts.onRow(r); }); } cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
+    rows.forEach(r=>{ const trr=h('tr',{class:(r._class||'')+(opts.onRow&&(!r._class||r._row)?' clickable':'')}); if(opts.onRow&&(!r._class||r._row)){ trr.tabIndex=0; trr.addEventListener('click',()=>opts.onRow(r)); trr.addEventListener('keydown',e=>{ if(e.key==='Enter') opts.onRow(r); }); } cols.forEach(c=>{ const td=h('td',{class:c.num?'n':''}); const v=c.render?c.render(r):r[c.key]; if(v&&v.nodeType) td.append(v); else td.textContent=v; trr.append(td); }); tb.append(trr); });
     t.append(tb); wrap.append(t);
     if(opts.empty && !rows.length) container.append(h('div',{class:'empty',text:opts.empty}));
   }
@@ -744,7 +748,7 @@ button.ghost.gold:hover{background:#dcc48f}
       {l:'Balance still due', v:fmt.usd(T.balanceDue), d:`Insurance ${fmt.usd(split.ins)} · Patient ${fmt.usd(split.pat)}`},
       {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'shown for all dates (whole practice or one payer)':'distinct patient accounts'},
     ];
-    el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'+(k.hero?' hero':'')}); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
+    LAST={rows,T,bank,split}; el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile clickable'+(k.hero?' hero':''),role:'button',tabindex:'0',title:'Click to see how this figure is built'}); t.addEventListener('click',()=>openMetric(k.l)); t.addEventListener('keydown',e=>{ if(e.key==='Enter') openMetric(k.l); }); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
 
     // Monthly / weekly
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
@@ -921,8 +925,6 @@ button.ghost.gold:hover{background:#dcc48f}
     const tt={name:'Total',_class:'total'}; series.forEach(([cat])=>tt[cat]=trows.reduce((a,r)=>a+r[cat],0)); tt.total=trows.reduce((a,r)=>a+r.total,0); tt.xfer=trows.reduce((a,r)=>a+r.xfer,0); trows.push(tt);
     table(el('bankTable'), [{label:byWeek?'Week':'Month',key:'name'},...series.map(([cat,name])=>({label:name,num:1,render:r=>r[cat]?fmt.usd(r[cat]):'–'})),{label:'Revenue deposits',num:1,render:r=>h('strong',{text:fmt.usd(r.total)})},{label:'Transfers & loans',num:1,render:r=>r.xfer?fmt.usd(r.xfer):'–'}], trows);
     // reconciliation: follows the period and payer filters (period = service date on the eCW side, deposit date on the bank side)
-    const FAMILY={'Anthem Blue Cross':'Anthem Blue Cross / Blue Cross CA','Blue Cross California':'Anthem Blue Cross / Blue Cross CA','BlueCross BlueShield':'Anthem Blue Cross / Blue Cross CA','CA Medicare Part B South J1 - PGBA':'Medicare Part B (Noridian)','United Healthcare':'United / UMR','United Health Care Of All States':'United / UMR','UMR':'United / UMR','UHC MEDICARE HMO':'United / UMR','UHC Select Plus':'United / UMR','UHC CHOICE PLUS':'United / UMR','Cigna Healthcare':'Cigna','AETNA':'Aetna','Patient':'Patient','Self-Pay':'Patient'};
-    const famOf=c=>{ const n=D.dims.payerOrig[c[ORIG]]; return FAMILY[n]||n; };
     const sl=slice(); const E={}; sl.forEach(c=>{ const f=famOf(c); (E[f]=E[f]||[0,0])[0]+=c[M.payerPayments]; E[f][1]+=c[M.patientPayments]; });
     const payerSel=F.payer.get(); const selFams=payerSel?new Set(cells.filter(c=>payerSel.has(c[K.payer])).map(famOf)):null;
     const inSel=f=>!selFams||selFams.has(f);
@@ -940,7 +942,9 @@ button.ghost.gold:hover{background:#dcc48f}
       {name:'Patients (cards + RepeatMD)',e:patE,b:patB,reading:`Patients paid ${fmt.usd(patB)} by card and through RepeatMD, but eCW claims show only ${fmt.usd(patE)} of patient payments. The rest is program fees, packages and products that never go through a claim, so the claim reports do not see them.`}];
     const provSel=F.provider.get(), visitSel=F.visit.get();
     el('reconHint').textContent=`Follows the period and payer filters. Left: what eCW says each insurer has paid on claims with service dates in the period. Right: what that insurer wired to the bank during the period.`+((provSel||visitSel)?' The provider and service filters apply to the eCW side only: bank deposits cannot be split by provider or service, so the two columns are not comparable while those filters are on.':'');
-    table(el('recon'), [{label:'Payer',render:r=>h('span',{style:'white-space:normal;display:block;min-width:150px',text:r.name})},{label:'eCW posted',num:1,render:r=>r.e==null?'–':fmt.usd(r.e)},{label:'Bank received',num:1,render:r=>fmt.usd(r.b)},{label:'Difference',num:1,render:r=>r.e==null?'–':fmt.usd(r.b-r.e)},{label:'Reading',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:360px;max-width:640px;white-space:normal;line-height:1.45',text:r.reading})}], out);
+    LASTB={sl,rows,E,eft,checks,te,tb};
+    out.forEach(o=>{ if(o._class==='total'){ o._class='total clickable'; o._row=true; } });
+    table(el('recon'), [{label:'Payer',render:r=>h('span',{style:'white-space:normal;display:block;min-width:150px',text:r.name})},{label:'eCW posted',num:1,render:r=>r.e==null?'–':fmt.usd(r.e)},{label:'Bank received',num:1,render:r=>fmt.usd(r.b)},{label:'Difference',num:1,render:r=>r.e==null?'–':fmt.usd(r.b-r.e)},{label:'Reading',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:360px;max-width:640px;white-space:normal;line-height:1.45',text:r.reading})}], out, {onRow:openRecon});
     const eftOnly=rr.filter(r=>r.name==='Anthem Blue Cross / Blue Cross CA'||r.name==='Medicare Part B (Noridian)').reduce((a,r)=>a+r.e,0);
     el('reconNote').innerHTML=`<strong>What this tells us.</strong> Medicare and Anthem are the only insurers that pay electronically. Blue Shield, Cigna, United and the rest pay by check, so their ${fmt.usd(Math.max(0,te-eftOnly))} of eCW postings on this period's claims sit somewhere inside ${fmt.usd(checks)} of check deposits. The first reconciliation question for billing is therefore: which checks were Blue Shield, and are all of them posted? Patient cash is a different story: the practice collects far more from patients than the claim reports show, because memberships and cash-pay services never become claims. Service dates and deposit dates differ, so for short periods the two columns are not expected to match line by line.`;
   }
@@ -948,6 +952,102 @@ button.ghost.gold:hover{background:#dcc48f}
   el('bankToggle').onclick=()=>{ const t=el('bankTable'); t.hidden=!t.hidden; el('bankToggle').textContent=t.hidden?'Show as table':'Hide table'; el('bankToggle').setAttribute('aria-expanded',String(!t.hidden)); };
 
   // ---------- drill-down detail ----------
+  // ---------- metric drill-down: click a figure to see how it is built and why it differs from its neighbours ----------
+  let LAST=null, LASTB=null;
+  const FAMILY={'Anthem Blue Cross':'Anthem Blue Cross / Blue Cross CA','Blue Cross California':'Anthem Blue Cross / Blue Cross CA','BlueCross BlueShield':'Anthem Blue Cross / Blue Cross CA','CA Medicare Part B South J1 - PGBA':'Medicare Part B (Noridian)','United Healthcare':'United / UMR','United Health Care Of All States':'United / UMR','UMR':'United / UMR','UHC MEDICARE HMO':'United / UMR','UHC Select Plus':'United / UMR','UHC CHOICE PLUS':'United / UMR','Cigna Healthcare':'Cigna','AETNA':'Aetna','Patient':'Patient','Self-Pay':'Patient'};
+  const famOf=c=>{ const n=D.dims.payerOrig[c[ORIG]]; return FAMILY[n]||n; };
+  function openPanel(eyebrow, title, sub){ el('dEyebrow').textContent=eyebrow; el('dTitle').textContent=title; el('dSub').textContent=sub; const body=el('dBody'); body.innerHTML=''; el('detailModal').classList.add('open'); document.body.style.overflow='hidden'; el('detailModal').scrollTop=0; return body; }
+  const section=(body,title,hint)=>{ body.append(h('h3',{style:'margin:22px 0 2px;font-size:16px;font-weight:600',text:title})); if(hint) body.append(h('p',{class:'hint',style:'margin:2px 0 10px',text:hint})); const d=h('div'); body.append(d); return d; };
+  const noteBox=(body,html)=>{ const n=h('div',{class:'note',style:'margin:0 0 18px'}); n.innerHTML=html; body.append(n); return n; };
+  const bigValue=(body,v,def)=>{ const t=h('div',{class:'tile',style:'margin-bottom:18px'}); t.append(h('div',{class:'v',text:v})); if(def){ t.append(h('div',{class:'d',text:def.what})); if(def.ex) t.append(h('div',{class:'d',style:'color:var(--muted)',text:def.ex})); } body.append(t); };
+  const byPayerRows=(rows,measure,extra)=>{ const g=group(rows,'payer'); const tot=rows.reduce((a,c)=>a+c[M[measure]],0); const out=[...g.entries()].map(([i,rs])=>({name:D.dims.payer[i],t:totals(rs),v:sum(rs,measure)})).filter(r=>Math.abs(r.v)>0.5).sort((a,b)=>b.v-a.v); out.forEach(r=>r.share=tot?r.v/tot:NaN); out.push({name:'Total',t:totals(rows),v:tot,share:1,_class:'total'}); return out; };
+  const byMonthRows=(rows,measures)=>{ const g=group(rows,'month'); return months.filter(m=>g.has(m)).map(m=>{ const o={name:fmt.monthLong(m)}; measures.forEach(k=>o[k]=sum(g.get(m),k)); return o; }).reverse(); };
+  const bankByMonth=(bcells,cats)=>{ const o={}; bcells.filter(c=>cats.includes(c.cat)).forEach(c=>{ o[c.month]=(o[c.month]||0)+c.amount; }); return o; };
+
+  function openMetric(label){
+    if(!LAST) return; const {rows,T,bank,split}=LAST; const def=TH_HELP[label]||{};
+    const body=openPanel('How this figure is built', label, el('scope').textContent.replace('Showing: ','Within: '));
+    const bridge=()=>{ const other=T.billed-T.payments-T.contractual-T.writeoff-T.balanceDue; const lines=[['Billed (full fee schedule)',T.billed],['− Collected on these claims',-T.payments],['− Contractual adjustments',-T.contractual],['− Write-offs',-T.writeoff]]; if(Math.abs(other)>1) lines.push(['− Other credits and corrections',-other]); lines.push(['= Balance still due',T.balanceDue]); table(section(body,'From billed to balance due','Every dollar billed ends up in exactly one of these lines, so the four figures on the dashboard always add up.'),[{label:'Line',key:'name'},{label:'Amount',num:1,render:r=>fmt.usd(r.v)},{label:'Share of billed',num:1,render:r=>fmt.pct(T.billed?Math.abs(r.v)/T.billed:NaN)}],lines.map(([name,v],i)=>({name,v,_class:i===lines.length-1?'total':''}))); };
+    const payerTable=(measure,title,hint)=>table(section(body,title,hint),[{label:'Payer',key:'name'},{label:'Amount',num:1,render:r=>fmt.usd(r.v)},{label:'Share',num:1,render:r=>fmt.pct(r.share)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}],byPayerRows(rows,measure));
+    const cashVsCollected=()=>{ if(!bank) return; const diff=bank.total-T.payments; noteBox(body,`<strong>Why “Cash received” (${fmt.usd(bank.total)}) and “Collected on these claims” (${fmt.usd(T.payments)}) differ by ${fmt.usd(Math.abs(diff))}.</strong><ul style="margin:8px 0 0 18px;padding:0">
+      <li style="margin:4px 0"><strong>Different calendars.</strong> Cash received counts money by the day it reached the bank. Collected counts payments posted so far on claims whose <em>service date</em> is in the period, whenever the money arrived. A claim from March paid in May is “collected” in March and “cash” in May.</li>
+      <li style="margin:4px 0"><strong>Money that never becomes a claim.</strong> Patients paid ${fmt.usd(bank.pat)} by card and RepeatMD in the period, but eCW claims show only ${fmt.usd(T.patientPayments)} of patient payments. Memberships, packages and cash-pay services are not claims, so the claim reports cannot see them.</li>
+      <li style="margin:4px 0"><strong>Checks are not identified.</strong> ${fmt.usd(bank.chk)} of check deposits carry no payer name on the statement; they are Blue Shield, Cigna and other check-paying insurers mixed with patient checks.</li>
+      <li style="margin:4px 0"><strong>Recent claims are not adjudicated yet.</strong> Insurers take 30–90 days to pay, so the last weeks always show cash arriving for older claims and little collected on the newest ones.</li>
+      ${bank.beyond?`<li style="margin:4px 0"><strong>The bank data ends ${fmt.week(bank.lastBank)}</strong>, before the end of the selected period.</li>`:''}</ul>`); };
+    if(label==='Cash received'){
+      bigValue(body,fmt.usd(bank.total),def);
+      const bc=D.bank.cells.filter(c=>dayTest(activeRange())(c.date));
+      const cats=[['insurance','Insurance EFT (Anthem / Blue Cross CA, Medicare)'],['checks','Check deposits (payer not shown on the statement)'],['patient_card','Patient card payments (Global Payments)'],['patient_other','RepeatMD (memberships, packages)'],['other_income','Other income']];
+      const crow=cats.map(([k,n])=>({name:n,v:bc.filter(c=>c.cat===k).reduce((a,c)=>a+c.amount,0),n:bc.filter(c=>c.cat===k).reduce((a,c)=>a+c.n,0)})); crow.push({name:'Total revenue deposits',v:bank.total,n:crow.reduce((a,r)=>a+r.n,0),_class:'total'});
+      const xfer=bc.filter(c=>c.cat==='transfer'||c.cat==='financing').reduce((a,c)=>a+c.amount,0);
+      table(section(body,'By source','Every deposit on the statement, classified by who sent it.'+(xfer?` Excluded: ${fmt.usd(xfer)} of transfers between Helixona accounts and loan proceeds.`:'')),[{label:'Source',key:'name'},{label:'Deposits',num:1,render:r=>fmt.int(r.n)},{label:'Amount',num:1,render:r=>fmt.usd(r.v)},{label:'Share',num:1,render:r=>fmt.pct(bank.total?r.v/bank.total:NaN)}],crow);
+      const bm={}; bc.forEach(c=>{ if(['insurance','checks','patient_card','patient_other','other_income'].includes(c.cat)){ const o=bm[c.month]=bm[c.month]||{ins:0,chk:0,pat:0,oth:0}; o[c.cat==='insurance'?'ins':c.cat==='checks'?'chk':c.cat==='other_income'?'oth':'pat']+=c.amount; } });
+      table(section(body,'By month','Most recent month first.'),[{label:'Month',key:'name'},{label:'Insurance EFT',num:1,render:r=>fmt.usd(r.ins)},{label:'Checks',num:1,render:r=>fmt.usd(r.chk)},{label:'Patients',num:1,render:r=>fmt.usd(r.pat)},{label:'Other',num:1,render:r=>fmt.usd(r.oth)},{label:'Total',num:1,render:r=>fmt.usd(r.ins+r.chk+r.pat+r.oth)}],Object.keys(bm).sort().reverse().map(m=>({name:fmt.monthLong(m),...bm[m]})));
+      cashVsCollected();
+    } else if(label==='Billed'){
+      bigValue(body,fmt.usd(T.billed),def); bridge();
+      payerTable('billed','By payer','Who the claims were sent to.');
+      const vg=group(rows,'visit'); const vr=[...vg.entries()].map(([i,rs])=>({name:D.dims.visit[i],v:sum(rs,'billed'),t:totals(rs)})).sort((a,b)=>b.v-a.v).slice(0,12);
+      table(section(body,'Top services','The twelve services with the most billed charges.'),[{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.v)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}],vr);
+      const zero=rows.reduce((a,c)=>a+(c[M.billed]===0?c[M.claims]:0),0); if(zero) noteBox(body,`<strong>${fmt.int(zero)} visits in this selection have no charge entered</strong>, so they add nothing to Billed. Either the charge was never entered or the report does not carry it.`);
+    } else if(label==='Collected on these claims'){
+      bigValue(body,fmt.usd(T.payments),def);
+      noteBox(body,`<strong>Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}.</strong> This is what eCW has posted on the claims in the selection, up to the export date (${D.asOf}). It is not the money that arrived in the period; that is “Cash received”.`);
+      bridge(); payerTable('payments','By payer','Payments posted on this payer’s claims.');
+      table(section(body,'By service month','Most recent first. Recent months look low because the insurer has not adjudicated those claims yet.'),[{label:'Service month',key:'name'},{label:'Billed',num:1,render:r=>fmt.usd(r.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.payments)},{label:'Of billed',num:1,render:r=>fmt.pct(r.billed?r.payments/r.billed:NaN)}],byMonthRows(rows,['billed','payments']));
+      cashVsCollected();
+    } else if(label==='Collection rate'){
+      bigValue(body,fmt.pct(T.rate),def);
+      noteBox(body,`<strong>${fmt.usd(T.payments)} collected ÷ (${fmt.usd(T.billed)} billed − ${fmt.usd(T.contractual)} contractual) = ${fmt.usd(T.payments)} ÷ ${fmt.usd(T.billed-T.contractual)} = ${fmt.pct(T.rate)}.</strong> Of what was realistic to collect, this much came in. Payments ÷ billed before the discount would be ${fmt.pct(T.billed?T.payments/T.billed:NaN)}.`);
+      const pr=byPayerRows(rows,'billed'); table(section(body,'By payer','A low rate with few adjustments means the claims were never adjudicated; a low rate with large adjustments means the insurer is paying little of what it allows.'),[{label:'Payer',key:'name'},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Net billed',num:1,render:r=>fmt.usd(r.t.netBilled)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Rate',num:1,render:r=>ratePill(r.t.rate)}],pr);
+    } else if(label==='Contractual adjustments'){
+      bigValue(body,fmt.usd(T.contractual),def); bridge(); payerTable('contractual','By payer','Large adjustments mean the insurer is adjudicating; its contracted rate is below the fee schedule.');
+    } else if(label==='Write-offs'){
+      bigValue(body,fmt.usd(T.writeoff),def); bridge(); payerTable('writeoff','By payer','Money that was collectible and was given up: unappealed denials, timely-filing losses, courtesy discounts.');
+    } else if(label==='Balance still due'){
+      bigValue(body,fmt.usd(T.balanceDue),def);
+      noteBox(body,`<strong>Insurance ${fmt.usd(split.ins)} · Patient ${fmt.usd(split.pat)}.</strong> Patient balances are claims under the patient payer or with eCW status PAT (responsibility moved to the patient).`);
+      bridge();
+      const ga=group(rows,'aging'); const ar=D.agingBuckets.map((b,i)=>({name:b,v:ga.has(i)?sum(ga.get(i),'balanceDue'):0})); ar.push({name:'Total',v:T.balanceDue,_class:'total'});
+      table(section(body,'By age of the claim','Aged by date of service. Commercial payers often limit appeals and timely filing to 90–180 days.'),[{label:'Age',key:'name'},{label:'Balance due',num:1,render:r=>fmt.usd(r.v)},{label:'Share',num:1,render:r=>fmt.pct(T.balanceDue?r.v/T.balanceDue:NaN)}],ar);
+      payerTable('balanceDue','By payer','Who owes it.');
+      const sg=group(rows,'status'); const sr=[...sg.entries()].map(([i,rs])=>({name:D.dims.status[i],v:sum(rs,'balanceDue'),t:totals(rs)})).filter(r=>r.v>0.5).sort((a,b)=>b.v-a.v).slice(0,10);
+      table(section(body,'By eCW claim status','Top ten status codes by open balance, as exported. Their meaning is to be confirmed with billing.'),[{label:'Status',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Balance due',num:1,render:r=>fmt.usd(r.v)}],sr);
+    } else if(label==='Patients'){
+      const all=(!F.payer.get()&&!F.provider.get()&&!F.visit.get()&&periodState.id==='all');
+      bigValue(body,all?fmt.int(D.patientCount):'—',def);
+      if(all){ const pr=Object.entries(D.patientsByPayer).filter(([,v])=>v!=null).map(([i,v])=>({name:D.dims.payer[+i],v})).sort((a,b)=>b.v-a.v); table(section(body,'By payer','A patient with claims under two insurers is counted under each, so the column adds to more than the total.'),[{label:'Payer',key:'name'},{label:'Patients',num:1,render:r=>fmt.int(r.v)}],pr); }
+      else noteBox(body,'The export is aggregated to protect patient identity, so distinct patients can only be counted for the whole practice or for one payer over all dates. Reset the filters to see the count.');
+    } else { bigValue(body,'',def); }
+  }
+
+  function openRecon(r){
+    if(!LASTB) return; const {sl,rows,E,eft,checks,te,tb}=LASTB;
+    const body=openPanel('Why these two numbers differ', r.name, el('scope').textContent.replace('Showing: ','Within: '));
+    const efam=r.name==='All insurers'?(c=>famOf(c)!=='Patient'):r.name==='Other insurers'?(c=>!['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna','Patient'].includes(famOf(c))):(c=>famOf(c)===r.name);
+    const isPat=r.name.startsWith('Patients'), isChk=r.name.startsWith('Check deposits');
+    const eByM={}; if(!isChk) sl.filter(isPat?()=>true:efam).forEach(c=>{ eByM[c[K.month]]=(eByM[c[K.month]]||0)+c[M[isPat?'patientPayments':'payerPayments']]; });
+    const bByM=isPat?bankByMonth(rows,['patient_card','patient_other']):isChk?bankByMonth(rows,['checks']):(()=>{ const o={}; rows.filter(c=>c.cat==='insurance'&&(r.name==='All insurers'||c.source===r.name)).forEach(c=>{ o[c.month]=(o[c.month]||0)+c.amount; }); return o; })();
+    const chkByM=bankByMonth(rows,['checks']);
+    const tiles=h('div',{class:'grid kpis',style:'margin-bottom:18px'}); [['eCW posted',r.e==null?'—':fmt.usd(r.e),'payments posted on claims with service dates in the period'],['Bank received',fmt.usd(r.b),isChk?'check deposits in the period':isPat?'cards and RepeatMD in the period':'EFTs from this payer in the period'],['Difference',r.e==null?'—':fmt.usd(r.b-r.e),'bank minus eCW']].forEach(([l,v,d])=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:l}),h('div',{class:'v',text:v}),h('div',{class:'d',text:d})); tiles.append(t); }); body.append(tiles);
+    const reasons=[];
+    reasons.push(`<strong>Two different calendars.</strong> The eCW column is by <em>service date</em>: payments posted so far on claims for visits in the period. The bank column is by <em>deposit date</em>: money that arrived in the period, whatever visit it paid for. They only converge over long periods.`);
+    const bMonths=Object.keys(bByM).filter(m=>bByM[m]>0).sort(); const firstEft=bMonths[0];
+    if(!isPat&&!isChk&&r.b>0&&firstEft&&r.name!=='All insurers'&&r.name!=='Other insurers'){ const before=Object.entries(eByM).filter(([m])=>m<firstEft).reduce((a,[,v])=>a+v,0); if(before>1000) reasons.push(`<strong>Electronic payments from ${r.name} start in ${fmt.monthLong(firstEft)}.</strong> eCW shows ${fmt.usd(before)} paid on claims with earlier service dates. That money did not arrive by EFT, so it came by paper check or virtual card and sits inside the unidentified check deposits.`); }
+    if(!isPat&&!isChk&&r.b===0&&r.e>0) reasons.push(`<strong>${r.name} pays by paper check.</strong> No EFT from this payer appears on the statement. Its ${fmt.usd(r.e)} of eCW postings are inside the ${fmt.usd(checks)} of check deposits, which the statement does not break down by sender. Only the check images or the eCW payment log can match them.`);
+    if(!isPat&&!isChk&&r.e>r.b&&r.b>0) reasons.push(`<strong>Part was paid outside the EFT stream.</strong> Virtual card payments and paper checks from the same insurer post in eCW like any other payment but do not appear as an EFT on the statement.`);
+    if(!isPat&&!isChk&&r.b>r.e) reasons.push(`<strong>The bank received more than eCW shows on this period’s claims.</strong> The extra is money for visits before the period (remittances always lag the visit), or remittances not yet posted in eCW.`);
+    if(isPat) reasons.push(`<strong>Most patient money is not a claim.</strong> Memberships, packages, products and cash-pay services are charged by card or RepeatMD and never go through eCW billing, so the claim reports only see copays and coinsurance.`);
+    if(isChk) reasons.push(`<strong>The statement does not say who wrote each check.</strong> Blue Shield, Cigna, Aetna, United and patient checks are all here. Of eCW’s ${fmt.usd(te-tb)} posted beyond the EFTs, all of it should be inside these deposits; the remainder is patient and program money or insurance money not yet posted.`);
+    reasons.push(`<strong>Timing at the edges.</strong> The eCW export is dated ${D.asOf}; the bank data ends ${fmt.week(D.bank.lastDate)}. Payments posted after the last statement day have no bank line yet.`);
+    noteBox(body,'<strong>Reading:</strong><ul style="margin:8px 0 0 18px;padding:0">'+reasons.map(x=>`<li style="margin:4px 0">${x}</li>`).join('')+'</ul>');
+    const ms=[...new Set([...Object.keys(eByM),...Object.keys(bByM)])].sort().reverse();
+    const mrows=ms.map(m=>({name:fmt.monthLong(m),e:eByM[m]||0,b:bByM[m]||0,c:chkByM[m]||0})); mrows.push({name:'Total',e:Object.values(eByM).reduce((a,v)=>a+v,0),b:Object.values(bByM).reduce((a,v)=>a+v,0),c:Object.values(chkByM).reduce((a,v)=>a+v,0),_class:'total'});
+    const cols=[{label:'Month',key:'name'}]; if(!isChk) cols.push({label:'eCW posted (by service month)',num:1,render:r2=>fmt.usd(r2.e)}); cols.push({label:(isChk?'Check deposits':isPat?'Bank: cards + RepeatMD':'Bank EFT')+' (by deposit month)',num:1,render:r2=>fmt.usd(r2.b)}); if(!isChk&&!isPat) cols.push({label:'All check deposits that month',num:1,render:r2=>fmt.usd(r2.c)});
+    table(section(body,'Month by month','Left: eCW payments on claims for visits in that month. Right: what the bank received that month. Most recent first.'),cols,mrows);
+  }
+
   function openDetail(dim, name){
     const idx = D.dims[dim].indexOf(name); if(idx<0) return;
     const rows = slice().filter(c=>c[K[dim]]===idx); const T=totals(rows);
