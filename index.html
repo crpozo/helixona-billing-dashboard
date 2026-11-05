@@ -322,7 +322,7 @@ button.ghost.gold:hover{background:#dcc48f}
       <hr class="sep">
       <div>
         <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Bank vs. eCW, by payer</h3>
-        <p class="hint" style="margin:2px 0 10px">Whole period, not filtered. Left: what eCW says each insurer has paid on claims. Right: what that insurer actually wired to the bank.</p>
+        <p class="hint" id="reconHint" style="margin:2px 0 10px"></p>
         <div id="recon"></div>
         <div class="note" id="reconNote"></div>
       </div>
@@ -920,22 +920,29 @@ button.ghost.gold:hover{background:#dcc48f}
     const trows=xs.map(x=>{ const rs=rows.filter(c=>c[key]===x); const o={name:labLong(x)}; series.forEach(([cat])=>o[cat]=sumCat(rs,cat)); o.total=revenueCats.reduce((a,c)=>a+o[c],0); o.xfer=sumCat(rs,'transfer')+sumCat(rs,'financing'); return o; });
     const tt={name:'Total',_class:'total'}; series.forEach(([cat])=>tt[cat]=trows.reduce((a,r)=>a+r[cat],0)); tt.total=trows.reduce((a,r)=>a+r.total,0); tt.xfer=trows.reduce((a,r)=>a+r.xfer,0); trows.push(tt);
     table(el('bankTable'), [{label:byWeek?'Week':'Month',key:'name'},...series.map(([cat,name])=>({label:name,num:1,render:r=>r[cat]?fmt.usd(r[cat]):'–'})),{label:'Revenue deposits',num:1,render:r=>h('strong',{text:fmt.usd(r.total)})},{label:'Transfers & loans',num:1,render:r=>r.xfer?fmt.usd(r.xfer):'–'}], trows);
-    // reconciliation (whole period)
-    const all=B.cells; const eft=collections(all.filter(c=>c.cat==='insurance'),'source','amount');
-    const E=B.ecwByFamily||{};
-    const fams=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna'];
-    const otherE=Object.entries(E).filter(([k])=>!fams.includes(k)&&k!=='Patient').reduce((a,[,v])=>a+v[0],0);
-    const otherB=Object.entries(eft).filter(([k])=>!fams.includes(k)).reduce((a,[,v])=>a+v,0);
-    const read=(e,b,fam)=>{ if(b===0&&e>0) return 'Pays by paper check; its payments are inside “Check deposits” and cannot be matched line by line from the statement.'; const d=b-e; if(Math.abs(d)<=Math.max(2000,0.03*Math.max(e,b))) return 'Matches. Everything the bank received is posted in eCW.'; if(d>0) return `Bank received ${fmt.usd(d)} more than eCW shows posted: remittances not yet posted, or posted under another payer name.`; return `eCW shows ${fmt.usd(-d)} more posted than arrived by EFT: part was paid by check or virtual card, or posted before the statements begin.`; };
-    const rr=fams.map(fm=>({name:fm,e:(E[fm]||[0])[0],b:eft[fm]||0})); rr.push({name:'Other insurers',e:otherE,b:otherB});
+    // reconciliation: follows the period and payer filters (period = service date on the eCW side, deposit date on the bank side)
+    const FAMILY={'Anthem Blue Cross':'Anthem Blue Cross / Blue Cross CA','Blue Cross California':'Anthem Blue Cross / Blue Cross CA','BlueCross BlueShield':'Anthem Blue Cross / Blue Cross CA','CA Medicare Part B South J1 - PGBA':'Medicare Part B (Noridian)','United Healthcare':'United / UMR','United Health Care Of All States':'United / UMR','UMR':'United / UMR','UHC MEDICARE HMO':'United / UMR','UHC Select Plus':'United / UMR','UHC CHOICE PLUS':'United / UMR','Cigna Healthcare':'Cigna','AETNA':'Aetna','Patient':'Patient','Self-Pay':'Patient'};
+    const famOf=c=>{ const n=D.dims.payerOrig[c[ORIG]]; return FAMILY[n]||n; };
+    const sl=slice(); const E={}; sl.forEach(c=>{ const f=famOf(c); (E[f]=E[f]||[0,0])[0]+=c[M.payerPayments]; E[f][1]+=c[M.patientPayments]; });
+    const payerSel=F.payer.get(); const selFams=payerSel?new Set(cells.filter(c=>payerSel.has(c[K.payer])).map(famOf)):null;
+    const inSel=f=>!selFams||selFams.has(f);
+    const eft=collections(rows.filter(c=>c.cat==='insurance'),'source','amount');
+    const fams=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna'].filter(inSel);
+    const otherE=Object.entries(E).filter(([k])=>!fams.includes(k)&&k!=='Patient'&&inSel(k)).reduce((a,[,v])=>a+v[0],0);
+    const otherB=Object.entries(eft).filter(([k])=>!fams.includes(k)&&inSel(k)).reduce((a,[,v])=>a+v,0);
+    const read=(e,b,fam)=>{ if(b===0&&e>0) return 'Pays by paper check; its payments are inside “Check deposits” and cannot be matched line by line from the statement.'; if(b===0&&e===0) return 'Nothing posted in eCW and nothing received in this period.'; const d=b-e; if(Math.abs(d)<=Math.max(2000,0.03*Math.max(e,b))) return 'Matches. Everything the bank received is posted in eCW.'; if(d>0) return `Bank received ${fmt.usd(d)} more than eCW shows posted: remittances for earlier service dates, not yet posted, or posted under another payer name.`; return `eCW shows ${fmt.usd(-d)} more posted than arrived by EFT in this period: part was paid by check or virtual card, or deposited outside the period.`; };
+    const rr=fams.map(fm=>({name:fm,e:(E[fm]||[0])[0],b:eft[fm]||0})); if(!payerSel||otherE||otherB) rr.push({name:'Other insurers',e:otherE,b:otherB});
     const te=rr.reduce((a,r)=>a+r.e,0), tb=rr.reduce((a,r)=>a+r.b,0);
-    const checks=sumCat(all,'checks'); const patE=(E['Patient']||[0,0])[1]; const patB=sumCat(all,'patient_card')+sumCat(all,'patient_other');
+    const checks=sumCat(rows,'checks'); const patE=sl.reduce((a,c)=>a+c[M.patientPayments],0); const patB=sumCat(rows,'patient_card')+sumCat(rows,'patient_other');
     const out=[...rr.map(r=>({...r,reading:read(r.e,r.b,r.name)})),
-      {name:'All insurers',e:te,b:tb,reading:`Difference ${fmt.usd(te-tb)}: what eCW has posted beyond the EFTs. It must be inside the ${fmt.usd(checks)} of check deposits.`,_class:'total'},
-      {name:'Check deposits (payer unknown)',e:null,b:checks,reading:`If all of eCW's non-EFT postings (${fmt.usd(te-tb)}) are checks, about ${fmt.usd(checks-(te-tb))} of checks are either patient/program payments or insurance money not yet posted. Needs the check images to split.`},
+      {name:'All insurers',e:te,b:tb,reading:te>tb?`Difference ${fmt.usd(te-tb)}: what eCW has posted beyond the EFTs. It must be inside the ${fmt.usd(checks)} of check deposits.`:`Bank received ${fmt.usd(tb-te)} more by EFT than eCW shows posted on this period's claims: payments for earlier service dates, or not yet posted.`,_class:'total'},
+      {name:'Check deposits (payer unknown)',e:null,b:checks,reading:te>tb?`If all of eCW's non-EFT postings (${fmt.usd(te-tb)}) are checks, about ${fmt.usd(checks-(te-tb))} of checks are either patient/program payments or insurance money not yet posted. Needs the check images to split.`:'The statement does not show who sent each check. Needs the check images to split.'},
       {name:'Patients (cards + RepeatMD)',e:patE,b:patB,reading:`Patients paid ${fmt.usd(patB)} by card and through RepeatMD, but eCW claims show only ${fmt.usd(patE)} of patient payments. The rest is program fees, packages and products that never go through a claim, so the claim reports do not see them.`}];
+    const provSel=F.provider.get(), visitSel=F.visit.get();
+    el('reconHint').textContent=`Follows the period and payer filters. Left: what eCW says each insurer has paid on claims with service dates in the period. Right: what that insurer wired to the bank during the period.`+((provSel||visitSel)?' The provider and service filters apply to the eCW side only: bank deposits cannot be split by provider or service, so the two columns are not comparable while those filters are on.':'');
     table(el('recon'), [{label:'Payer',render:r=>h('span',{style:'white-space:normal;display:block;min-width:150px',text:r.name})},{label:'eCW posted',num:1,render:r=>r.e==null?'–':fmt.usd(r.e)},{label:'Bank received',num:1,render:r=>fmt.usd(r.b)},{label:'Difference',num:1,render:r=>r.e==null?'–':fmt.usd(r.b-r.e)},{label:'Reading',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:360px;max-width:640px;white-space:normal;line-height:1.45',text:r.reading})}], out);
-    el('reconNote').innerHTML=`<strong>What this tells us.</strong> Medicare and Anthem are the only insurers that pay electronically, and for both the bank and eCW agree within a few percent. Blue Shield, Cigna, United and the rest pay by check, so their ${fmt.usd(te-(eft['Anthem Blue Cross / Blue Cross CA']||0)-(eft['Medicare Part B (Noridian)']||0))} of eCW postings sit somewhere inside ${fmt.usd(checks)} of check deposits. The first reconciliation question for billing is therefore: which checks were Blue Shield, and are all of them posted? Patient cash is a different story: the practice collects far more from patients than the claim reports show, because memberships and cash-pay services never become claims.`;
+    const eftOnly=rr.filter(r=>r.name==='Anthem Blue Cross / Blue Cross CA'||r.name==='Medicare Part B (Noridian)').reduce((a,r)=>a+r.e,0);
+    el('reconNote').innerHTML=`<strong>What this tells us.</strong> Medicare and Anthem are the only insurers that pay electronically. Blue Shield, Cigna, United and the rest pay by check, so their ${fmt.usd(Math.max(0,te-eftOnly))} of eCW postings on this period's claims sit somewhere inside ${fmt.usd(checks)} of check deposits. The first reconciliation question for billing is therefore: which checks were Blue Shield, and are all of them posted? Patient cash is a different story: the practice collects far more from patients than the claim reports show, because memberships and cash-pay services never become claims. Service dates and deposit dates differ, so for short periods the two columns are not expected to match line by line.`;
   }
   function collections(list, key, val){ const o={}; list.forEach(x=>{ o[x[key]]=(o[x[key]]||0)+x[val]; }); return o; }
   el('bankToggle').onclick=()=>{ const t=el('bankTable'); t.hidden=!t.hidden; el('bankToggle').textContent=t.hidden?'Show as table':'Hide table'; el('bankToggle').setAttribute('aria-expanded',String(!t.hidden)); };
