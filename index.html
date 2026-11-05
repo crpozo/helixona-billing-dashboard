@@ -157,6 +157,8 @@ td.bar-cell{width:30%;min-width:120px}
 .inline-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 4px 4px 0}
 .inline-bar i.c{background:var(--s2)}
 tr.total td{font-weight:600;border-top:2px solid var(--axis)}
+.btn-sm{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:8px;border:1px solid var(--axis);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn-sm:hover{border-color:var(--gold)}
 tr.clickable{cursor:pointer}
 .tile.clickable{cursor:pointer;transition:border-color .15s}
 .tile.clickable:hover,.tile.clickable:focus-visible{border-color:var(--gold);outline:none}
@@ -380,6 +382,14 @@ button.ghost.gold:hover{background:#dcc48f}
     <div id="notes"></div>
   </section>
 
+  <section class="card section" id="modSection">
+    <div class="card-head">
+      <div><div class="eyebrow" style="color:var(--gold-2)">Volume</div><h2>Treatments by modality</h2><p class="hint" id="modHint"></p></div>
+      <div class="legend"><button class="btn-sm" id="modToggle" type="button">Every visit type</button></div>
+    </div>
+    <div id="modTable" style="margin-top:12px"></div>
+  </section>
+
   <section class="card section" id="agingSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Accounts receivable</div><h2>Outstanding balances by age (eCW aging report)</h2><p class="hint" id="agingHint"></p></div>
@@ -472,7 +482,7 @@ button.ghost.gold:hover{background:#dcc48f}
       <div class="ai-out" id="aiOut"></div>
     </div>
     <div class="modal-foot">
-      <span id="aiFootNote">Analysis prepared by Claude from the eCW exports of October 21 and November 3, 2026 and the bank statements through October 2026. Check against eCW before acting on it.</span>
+      <span id="aiFootNote">Analysis prepared by Claude from the eCW exports of October 21 and November 3, 2026 and the bank statements through October 2026. Whole practice, all dates: it does not follow the filters. Check against eCW before acting on it.</span>
       <div class="actions">
         <select id="aiLang" aria-label="Language"><option value="en">English</option><option value="es">Español</option></select>
         <button class="ghost gold" id="aiAgain" type="button">Analyze again</button>
@@ -622,6 +632,7 @@ button.ghost.gold:hover{background:#dcc48f}
   };
   ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).addEventListener('change',render));
   el('payRows').addEventListener('change',render);
+  el('modToggle').onclick=()=>{ modMode=modMode==='families'?'types':'families'; el('modToggle').textContent=modMode==='families'?'Every visit type':'Group by modality'; render(); };
   el('reset').onclick=()=>{ el('fPeriod')._reset(); F.payer.reset(); F.provider.reset(); F.visit.reset(); render(); };
 
   const slice = () => {
@@ -752,9 +763,9 @@ button.ghost.gold:hover{background:#dcc48f}
     const isPatientPayer = i => /^(patient|self-pay)$/i.test(D.dims.payer[i]);
     const patStatus = D.dims.status.indexOf('PAT');
     const split = rows.reduce((a,c)=>{ const v=c[M.balanceDue]; if(isPatientPayer(c[K.payer])||c[K.status]===patStatus) a.pat+=v; else a.ins+=v; return a; },{ins:0,pat:0});
-    const bank = D.bank ? (()=>{ const dt=dayTest(activeRange()); const rs=D.bank.cells.filter(c=>dt(c.date)); const g=cat=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0); const ins=g('insurance'), chk=g('checks'), pat=g('patient_card')+g('patient_other'), oth=g('other_income'); const r=activeRange(); const lastBank=D.bank.lastDate||(D.bank.months[D.bank.months.length-1]+'-31'); const beyond = r && iso(r[1])>lastBank; return {total:ins+chk+pat+oth,ins,chk,pat,oth,beyond,lastBank}; })() : null;
+    const bank = D.bank ? (()=>{ const bc=bankCells(); const rs=bc.cells; const g=cat=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0); const ins=g('insurance'), chk=g('checks'), pat=g('patient_card')+g('patient_other'), oth=g('other_income'); const r=activeRange(); const lastBank=D.bank.lastDate||(D.bank.months[D.bank.months.length-1]+'-31'); const beyond = r && iso(r[1])>lastBank; return {total:ins+chk+pat+oth,ins,chk,pat,oth,beyond,lastBank,attributed:bc.attributed}; })() : null;
     const kp = [
-      ...(bank?[{l:'Cash received', v:fmt.usd(bank.total), d:`Insurance EFT ${fmt.usdc(bank.ins)} · Checks ${fmt.usdc(bank.chk)} · Patients ${fmt.usdc(bank.pat)}`+(bank.beyond?` · bank data through ${fmt.week(bank.lastBank)}`:''), hero:true}]:[]),
+      ...(bank?[{l:'Cash received', v:fmt.usd(bank.total), d:(bank.attributed?`Attributed to the selected payers · EFT ${fmt.usdc(bank.ins)} · Scanned checks ${fmt.usdc(bank.chk)}`+(bank.pat?` · Patients ${fmt.usdc(bank.pat)}`:''):`Insurance EFT ${fmt.usdc(bank.ins)} · Checks ${fmt.usdc(bank.chk)} · Patients ${fmt.usdc(bank.pat)}`)+(bank.beyond?` · bank data through ${fmt.week(bank.lastBank)}`:''), hero:true}]:[]),
       {l:'Billed', v:fmt.usd(T.billed), d:`${fmt.int(T.claims)} claims`, c:S.s1},
       {l:'Collected on these claims', v:fmt.usd(T.payments), d:`Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}`, c:S.s2},
       {l:'Collection rate', v:fmt.pct(T.rate), d:'of billed after contractual adj.'},
@@ -888,12 +899,61 @@ button.ghost.gold:hover{background:#dcc48f}
     // Statuses
     const gs = group(rows,'status');
     const srows=[...gs.entries()].map(([i,rs])=>({name:D.dims.status[i],t:totals(rs)})).sort((a,b)=>b.t.balanceDue-a.t.balanceDue); srows.push({name:'Total',t:T,_class:'total'});
+    renderModalities(rows);
     renderBank();
     table(el('statuses'), [{label:'Status code',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.t.claims)},{label:'Billed',num:1,render:r=>fmt.usd(r.t.billed)},{label:'Collected',num:1,render:r=>fmt.usd(r.t.payments)},{label:'Contractual',num:1,render:r=>fmt.usd(r.t.contractual)},{label:'Write-offs',num:1,render:r=>fmt.usd(r.t.writeoff)},{label:'Balance due',num:1,render:r=>fmt.usd(r.t.balanceDue)},{label:'Net A/R change',num:1,render:r=>fmt.usd(r.t.arChange)}], srows);
   }
 
 
 
+
+  // ---------- treatments by modality: one column per modality, one row per month or week ----------
+  const MODALITY = [  // [family, regex on the eCW visit type]. First match wins; unmatched types go to "Other".
+    ['Mito Boost', /^(mini )?mito/i], ['Foundational Flow', /foundational flow/i], ['Vitamin C IV', /vit c/i],
+    ['EBOO', /eboo/i], ['Other IVs', /essential amino|cellular boost|core restore|chelation|mast cell|detox prime|hydration|iron blend|iv cash add on|migraine|myers|nad/i],
+    ['Erchonia Laser', /erchonia|laser/i], ['Trigger Point', /trigger point/i], ['Acupuncture', /acupuncture/i], ['Chiropractic', /chiro/i],
+    ['Pellets', /pellets/i], ['PRP', /\bprp\b/i], ['Energetics', /scenar|microcurrent|biocharger|lymph|biomod|nano/i],
+    ['Diagnostics & labs', /diagnostic|lab draw|blood draw|mead/i],
+    ['Office visits', /follow ?up|new patient|baseline|telemedicine|transfer of care|level 2|cognitive/i],
+  ];
+  const IV_FAMILIES=['Mito Boost','Foundational Flow','Vitamin C IV','EBOO','Other IVs'];
+  const modOf = v => { for(const [f,rx] of MODALITY) if(rx.test(v)) return f; return 'Other'; };
+  const MOD_IDX = D.dims.visit.map(modOf);
+  let modMode='families';
+  function renderModalities(rows){
+    const byWeek=gran==='week'; const key=byWeek?'week':'month'; const lab=byWeek?fmt.weekLong:fmt.monthLong;
+    const skip=new Set(['Cancelled','No-Show'].map(s=>D.dims.vstatus.indexOf(s)));
+    const r=activeRange(); const m0=r?iso(r[0]).slice(0,7):'', m1=r?iso(r[1]).slice(0,7):'9999';
+    const live=rows.filter(c=>!skip.has(c[K.vstatus])&&(byWeek||!r||(c[K.month]>=m0&&c[K.month]<=m1)));
+    const colOf=modMode==='families'?(c=>MOD_IDX[c[K.visit]]):(c=>D.dims.visit[c[K.visit]]);
+    const tot={}; live.forEach(c=>{ const k=colOf(c); tot[k]=(tot[k]||0)+c[M.claims]; });
+    const famOrder=[...MODALITY.map(m=>m[0]),'Other'];
+    const colsK=Object.keys(tot).filter(k=>tot[k]>0).sort((a,b)=>modMode==='families'?famOrder.indexOf(a)-famOrder.indexOf(b):tot[b]-tot[a]);
+    const g=group(live,key); const xs=[...g.keys()].sort().reverse();
+    const trows=xs.map(x=>{ const o={name:lab(x),_x:x,total:0}; g.get(x).forEach(c=>{ const k=colOf(c); o[k]=(o[k]||0)+c[M.claims]; o.total+=c[M.claims]; if(modMode==='families'&&IV_FAMILIES.includes(k)) o._iv=(o._iv||0)+c[M.claims]; }); return o; });
+    const T={name:'Total',_class:'total',total:live.reduce((a,c)=>a+c[M.claims],0),_iv:live.filter(c=>IV_FAMILIES.includes(MOD_IDX[c[K.visit]])).reduce((a,c)=>a+c[M.claims],0)}; colsK.forEach(k=>T[k]=tot[k]); trows.push(T);
+    const prevOf=i=>trows[i+1]&&!trows[i+1]._class?trows[i+1]:null;
+    const cell=(r,k,i)=>{ const v=r[k]||0; if(r._class) return fmt.int(v); const p=prevOf(i); const d=p?v-(p[k]||0):0; const s=h('span'); s.append(fmt.int(v)); if(p&&d){ s.append(h('small',{style:'color:'+(d>0?'var(--ok)':'var(--bad)')+';margin-left:4px',text:(d>0?'+':'−')+Math.abs(d)})); } return s; };
+    const cols=[{label:byWeek?'Week':'Month',key:'name'},...(modMode==='families'?[{label:'All IVs',num:1,render:(r)=>{ const i=trows.indexOf(r); return cell(r,'_iv',i); }}]:[]),...colsK.map(k=>({label:k,num:1,render:r=>cell(r,k,trows.indexOf(r))})),{label:'All encounters',num:1,render:r=>cell(r,'total',trows.indexOf(r))}];
+    table(el('modTable'),cols,trows,{empty:'No encounters in this selection.'});
+    el('modHint').textContent=`Encounters in eCW by date of service (report 361.05), one per patient visit type per day, all visit statuses except cancelled and no-show. ${modMode==='families'?'Columns group the eCW visit types into modalities; switch to “Every visit type” to see the raw types.':'One column per eCW visit type, as named in eCW.'} Small figures show the change from the previous ${byWeek?'week':'month'}. Follows every filter.`;
+  }
+
+  // Bank-side cells for the current filters. Period: deposit date. Payer: only deposits that can be attributed to a payer
+  // (EFTs by sender name, scanned checks by payer, cards + RepeatMD when the Patient payer is selected).
+  function bankCells(){
+    const B=D.bank; if(!B) return {cells:[],note:''};
+    const dt=dayTest(activeRange()); const all=B.cells.filter(c=>dt(c.date));
+    const payerSel=F.payer.get(); if(!payerSel) return {cells:all,attributed:false,note:''};
+    const selFams=new Set(cells.filter(c=>payerSel.has(c[K.payer])).map(famOf));
+    const FAMS=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna'];
+    const otherSel=[...selFams].some(f=>!FAMS.includes(f)&&f!=='Patient');
+    const out=all.filter(c=>c.cat==='insurance'&&selFams.has(c.source));
+    if(selFams.has('Patient')) out.push(...all.filter(c=>c.cat==='patient_card'||c.cat==='patient_other'));
+    const wt=weekTest(activeRange());
+    (CK?CK.cells:[]).filter(c=>c.kind==='scanned'&&c.week&&wt(c.week)&&(selFams.has(c.family)||(otherSel&&!FAMS.includes(c.family)))).forEach(c=>out.push({month:c.month,week:c.week,date:c.week,cat:'checks',source:'Scanned checks (SharePoint)',n:c.n,amount:c.amount}));
+    return {cells:out,attributed:true,note:'Only deposits that can be attributed to the selected payers: EFTs by sender name and checks scanned into SharePoint. Unidentified check deposits'+(selFams.has('Patient')?'':' and patient card payments')+' are left out.'};
+  }
 
   // ---------- insurance checks: SharePoint scans vs eCW ----------
   const CK = window.CHECKS_DATA || null;
@@ -941,16 +1001,18 @@ button.ghost.gold:hover{background:#dcc48f}
   function renderBank(){
     const B=D.bank; if(!B) return; el('bankSection').hidden=false;
     const S={s1:css('--s1'),s2:css('--s2'),s3:css('--s3'),s4:css('--s4'),neutral:css('--s-neutral')};
-    const dt=dayTest(activeRange()); const rows=B.cells.filter(c=>dt(c.date));
+    const bc=bankCells(); const rows=bc.cells; const provSel0=F.provider.get(), visitSel0=F.visit.get();
+    el('bankScope').textContent=bc.attributed?'Basis: deposit date · Period and Payer filters (attributed deposits only)':'Basis: deposit date, exact days · follows the Period filter; Payer narrows it to attributable deposits';
+    el('bankScope').title=(bc.note||'')+((provSel0||visitSel0)?' Provider and service filters cannot be applied to bank deposits.':'');
     const revenueCats=['insurance','checks','patient_card','patient_other','other_income'];
     const sumCat=(rs,cat)=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0);
     const total=revenueCats.reduce((a,c)=>a+sumCat(rows,c),0);
     const f=d=>d.toLocaleString('en-US',{month:'short',year:'numeric'});
-    el('bankHint').textContent=`${B.account}. Statements ${f(new Date(B.months[0]+'-15'))} to ${f(new Date(B.months[B.months.length-1]+'-15'))}, every deposit classified by who sent it. This is cash by the date it hit the bank, the view the claim reports cannot give.`;
+    el('bankHint').textContent=`${B.account}. Statements ${f(new Date(B.months[0]+'-15'))} to ${f(new Date(B.months[B.months.length-1]+'-15'))}, every deposit classified by who sent it. This is cash by the date it hit the bank, the view the claim reports cannot give.`+(bc.note?' '+bc.note:'')+((provSel0||visitSel0)?' Provider and service filters do not apply here: a deposit cannot be split by provider or service.':'');
     const kp=[
       {l:'Deposits (revenue)',v:fmt.usd(total),d:'excluding transfers and loans'},
       {l:'Insurance by EFT',v:fmt.usd(sumCat(rows,'insurance')),d:'Anthem / Blue Cross CA and Medicare; no other insurer pays electronically'},
-      {l:'Check deposits',v:fmt.usd(sumCat(rows,'checks')),d:'payer not shown on the statement: Blue Shield, Cigna, patients…'},
+      {l:bc.attributed?'Scanned checks (SharePoint)':'Check deposits',v:fmt.usd(sumCat(rows,'checks')),d:bc.attributed?'paper checks from the selected payers, by scan or deposit date':'payer not shown on the statement: Blue Shield, Cigna, patients…'},
       {l:'Patient cards + RepeatMD',v:fmt.usd(sumCat(rows,'patient_card')+sumCat(rows,'patient_other')),d:`cards ${fmt.usd(sumCat(rows,'patient_card'))} · RepeatMD ${fmt.usd(sumCat(rows,'patient_other'))}`},
     ];
     el('bankKpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:k.l}),h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('bankKpis').append(t); });

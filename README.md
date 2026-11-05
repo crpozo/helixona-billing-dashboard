@@ -27,3 +27,18 @@ Do **not** commit the Excel export itself: it contains patient names and account
 
 Push these files to the `main` branch of the Pages repository, then in
 *Settings → Pages* choose *Deploy from a branch*, branch `main`, folder `/ (root)`.
+
+## Insurance checks (SharePoint scans)
+
+`checks.js` holds aggregated figures from the insurance-check reconciliation feed (the
+checks server reads the scanned checks in SharePoint, the Insurance Check Tracker, the Blue
+Shield payment list and eCW). To refresh it:
+
+```bash
+curl -sS -p -x "$HTTPS_PROXY" http://<checks-server>:5050/api/checks -o checks.json
+python3 scripts/build_checks.py checks.json --out checks.js
+```
+
+Only per-payer x month x verdict totals are written: no check numbers, patient names or
+file names. Do not commit `checks.json`.
+
