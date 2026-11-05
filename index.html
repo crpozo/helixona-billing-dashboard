@@ -300,7 +300,7 @@ button.ghost.gold:hover{background:#dcc48f}
     <label>Service <div class="ms" id="fVisit"></div></label>
     <button class="ghost reset" id="reset" type="button">Reset</button>
     <div class="scope" id="scope"></div>
-    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. The “Cash received” tile and the “Deposits in the bank account” section are the exception: they come from the bank statements and count money by the date it arrived.</div>
+    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. The “Cash received” tile and the “Deposits in the bank account” section are the exception: they come from the bank statements and the scanned checks in SharePoint, and count money by the date it arrived.</div>
   </section>
 
   <p class="hint" style="margin:0 0 10px">Click any figure to see how it is built and why it differs from the others.</p>
@@ -329,6 +329,12 @@ button.ghost.gold:hover{background:#dcc48f}
         <p class="hint" id="reconHint" style="margin:2px 0 10px"></p>
         <div id="recon"></div>
         <div class="note" id="reconNote"></div>
+      </div>
+      <div id="leaks" hidden>
+        <hr class="sep">
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Insurance checks: where the money leaks</h3>
+        <p class="hint" id="leaksHint" style="margin:2px 0 10px"></p>
+        <div id="leaksTable"></div>
       </div>
     </div>
   </section>
@@ -486,6 +492,7 @@ button.ghost.gold:hover{background:#dcc48f}
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script src="data.js"></script>
+<script src="checks.js"></script>
 <script>
 (function(){
   const D = window.BILLING_DATA;
@@ -698,7 +705,15 @@ button.ghost.gold:hover{background:#dcc48f}
     'No charge yet':{what:'Visits that exist in eCW but have $0 billed in this export: the charge has not been entered, or the report does not carry it.', ex:''},
     'Visits':{what:'Number of visits (appointments) in eCW, billed or not.', ex:''},
     'eCW posted':{what:'Payments eCW shows as received on claims from this payer, all time (the claim export carries no payment dates).', ex:''},
-    'Bank received':{what:'Deposits from this payer on the bank statements, identified by the sender name on the EFT.', ex:''},
+    'Bank EFT':{what:'Electronic deposits from this payer on the bank statements, identified by the sender name. Only Anthem / Blue Cross CA and Medicare pay this way.', ex:''},
+    'SharePoint checks':{what:'Paper checks from this payer scanned into the Insurance Checks folders in SharePoint (Posted Checks and Unposted Checks) in the period, by the date they were deposited or scanned.', ex:''},
+    'Difference':{what:'Bank EFT + SharePoint checks − eCW posted. Positive: more arrived than eCW shows on this period’s claims. Negative: eCW shows more than is on file.', ex:''},
+    'Checks on file':{what:'Checks scanned into SharePoint plus checks logged in the Insurance Check Tracker without a scan.', ex:''},
+    'Not in eCW':{what:'The clinic has the check but eCW has no payment under that check number. Real money that is not posted.', ex:''},
+    'Entered, unposted':{what:'The payment exists in eCW but part of it was never applied to claims.', ex:''},
+    'Logged, no scan':{what:'Logged as received in the Insurance Check Tracker, but no SharePoint folder holds its image.', ex:''},
+    'Cashed, no copy':{what:'Blue Shield says the check was cashed, but no scan and no tracker entry exist at Helixona.', ex:''},
+    'Posted in eCW':{what:'Checks on file that eCW shows fully applied to claims.', ex:''},
     'Revenue deposits':{what:'All deposits except transfers between Helixona accounts and loan proceeds.', ex:''},
     'Patients':{what:'Distinct patient accounts with at least one claim in the selection.', ex:''},
   };
@@ -880,6 +895,32 @@ button.ghost.gold:hover{background:#dcc48f}
 
 
 
+  // ---------- insurance checks: SharePoint scans vs eCW ----------
+  const CK = window.CHECKS_DATA || null;
+  const ckRows = () => { if(!CK) return []; const wt=weekTest(activeRange()); return CK.cells.filter(c=>c.week&&wt(c.week)); };
+  function ckAgg(cs){ const z=()=>({n:0,amt:0}); const o={scanned:z(),trackerOnly:z(),noCopy:z(),notInEcw:z(),posted:0,unposted:0,notCashed:z(),unchecked:z(),byVerdict:{},byMonth:{}};
+    cs.forEach(c=>{ const k=c.kind==='scanned'?'scanned':c.kind==='tracker_only'?'trackerOnly':'noCopy'; o[k].n+=c.n; o[k].amt+=c.amount;
+      const v=o.byVerdict[c.verdict]=o.byVerdict[c.verdict]||z(); v.n+=c.n; v.amt+=c.amount;
+      const m=o.byMonth[c.month]=o.byMonth[c.month]||{scanned:0,notInEcw:0,all:0}; m.all+=c.amount; if(c.kind==='scanned') m.scanned+=c.amount;
+      if(c.verdict==='not in eCW'&&c.kind!=='noCopy'){ o.notInEcw.n+=c.n; o.notInEcw.amt+=c.amount; m.notInEcw+=c.amount; }
+      if(c.verdict==='posted') o.posted+=c.amount; if(c.verdict==='unposted') o.unposted+=c.amount;
+      if(c.verdict==='not cashed'){ o.notCashed.n+=c.n; o.notCashed.amt+=c.amount; } if(c.verdict==='eCW not checked'){ o.unchecked.n+=c.n; o.unchecked.amt+=c.amount; } });
+    return o; }
+  function renderLeaks(rr, kAll){
+    const box=el('leaks'); if(!box) return; if(!CK){ box.hidden=true; return; } box.hidden=false;
+    const fam=[...rr.map(r=>({name:r.name,k:r.k,e:r.e}))].filter(r=>r.k.scanned.n+r.k.trackerOnly.n+r.k.noCopy.n>0).sort((a,b)=>b.k.notInEcw.amt-a.k.notInEcw.amt);
+    const action=r=>{ const k=r.k; const recv=k.scanned.amt+k.trackerOnly.amt; const share=recv?k.notInEcw.amt/recv:0;
+      if(k.notInEcw.amt>5000&&share>0.25) return `Post the ${k.notInEcw.n} checks not in eCW: ${fmt.pct(share)} of what this payer sent is unposted.`;
+      if(k.notInEcw.amt>2000) return `Post the ${k.notInEcw.n} checks not in eCW.`;
+      if(k.unposted>2000) return `Apply ${fmt.usd(k.unposted)} that is entered but not allocated to claims.`;
+      if(k.trackerOnly.amt>2000) return `${k.trackerOnly.n} checks logged in the tracker have no scan: find and scan them.`;
+      if(k.noCopy.n) return `${k.noCopy.n} checks Blue Shield says were cashed have no copy at Helixona.`;
+      return 'In order.'; };
+    fam.push({name:'All insurers',k:kAll,_class:'total'});
+    el('leaksHint').textContent=`Every check the clinic has on file (scanned into SharePoint, or logged in the Insurance Check Tracker) in the period, looked up in eCW by check number. Last reconciliation run ${CK.reconciledAt||'—'}.`;
+    table(el('leaksTable'),[{label:'Payer',key:'name'},{label:'Checks on file',num:1,render:r=>fmt.int(r.k.scanned.n+r.k.trackerOnly.n)},{label:'Amount',num:1,render:r=>fmt.usd(r.k.scanned.amt+r.k.trackerOnly.amt)},{label:'Posted in eCW',num:1,render:r=>fmt.usd(r.k.posted)},{label:'Not in eCW',num:1,render:r=>r.k.notInEcw.n?h('span',{class:'pill crit',text:`${fmt.usd(r.k.notInEcw.amt)} · ${r.k.notInEcw.n}`}):'–'},{label:'Entered, unposted',num:1,render:r=>r.k.unposted>0.5?fmt.usd(r.k.unposted):'–'},{label:'Logged, no scan',num:1,render:r=>r.k.trackerOnly.n?`${fmt.usd(r.k.trackerOnly.amt)} · ${r.k.trackerOnly.n}`:'–'},{label:'Cashed, no copy',num:1,render:r=>r.k.noCopy.n?`${fmt.usd(r.k.noCopy.amt)} · ${r.k.noCopy.n}`:'–'},{label:'What to do',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:260px;white-space:normal;line-height:1.45',text:action(r)})}],fam,{onRow:r=>{ const row=rr.find(x=>x.name===r.name); if(row) openRecon({...row,s:row.k.scanned.amt}); }});
+  }
+
   // ---------- bank deposits & reconciliation ----------
   function stackedChart(container, cats, series, opts={}){
     container.innerHTML='';
@@ -924,29 +965,41 @@ button.ghost.gold:hover{background:#dcc48f}
     const trows=xs.map(x=>{ const rs=rows.filter(c=>c[key]===x); const o={name:labLong(x)}; series.forEach(([cat])=>o[cat]=sumCat(rs,cat)); o.total=revenueCats.reduce((a,c)=>a+o[c],0); o.xfer=sumCat(rs,'transfer')+sumCat(rs,'financing'); return o; });
     const tt={name:'Total',_class:'total'}; series.forEach(([cat])=>tt[cat]=trows.reduce((a,r)=>a+r[cat],0)); tt.total=trows.reduce((a,r)=>a+r.total,0); tt.xfer=trows.reduce((a,r)=>a+r.xfer,0); trows.push(tt);
     table(el('bankTable'), [{label:byWeek?'Week':'Month',key:'name'},...series.map(([cat,name])=>({label:name,num:1,render:r=>r[cat]?fmt.usd(r[cat]):'–'})),{label:'Revenue deposits',num:1,render:r=>h('strong',{text:fmt.usd(r.total)})},{label:'Transfers & loans',num:1,render:r=>r.xfer?fmt.usd(r.xfer):'–'}], trows);
-    // reconciliation: follows the period and payer filters (period = service date on the eCW side, deposit date on the bank side)
+    // reconciliation: follows the period and payer filters (period = service date on the eCW side, deposit date on the bank and SharePoint sides)
     const sl=slice(); const E={}; sl.forEach(c=>{ const f=famOf(c); (E[f]=E[f]||[0,0])[0]+=c[M.payerPayments]; E[f][1]+=c[M.patientPayments]; });
     const payerSel=F.payer.get(); const selFams=payerSel?new Set(cells.filter(c=>payerSel.has(c[K.payer])).map(famOf)):null;
     const inSel=f=>!selFams||selFams.has(f);
     const eft=collections(rows.filter(c=>c.cat==='insurance'),'source','amount');
-    const fams=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna'].filter(inSel);
+    const FAMS=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna'];
+    const fams=FAMS.filter(inSel);
+    const ck=ckRows(); const ckFam=f=>ckAgg(ck.filter(c=>f==='All insurers'?true:f==='Other insurers'?!FAMS.includes(c.family):c.family===f));
     const otherE=Object.entries(E).filter(([k])=>!fams.includes(k)&&k!=='Patient'&&inSel(k)).reduce((a,[,v])=>a+v[0],0);
     const otherB=Object.entries(eft).filter(([k])=>!fams.includes(k)&&inSel(k)).reduce((a,[,v])=>a+v,0);
-    const read=(e,b,fam)=>{ if(b===0&&e>0) return 'Pays by paper check; its payments are inside “Check deposits” and cannot be matched line by line from the statement.'; if(b===0&&e===0) return 'Nothing posted in eCW and nothing received in this period.'; const d=b-e; if(Math.abs(d)<=Math.max(2000,0.03*Math.max(e,b))) return 'Matches. Everything the bank received is posted in eCW.'; if(d>0) return `Bank received ${fmt.usd(d)} more than eCW shows posted: remittances for earlier service dates, not yet posted, or posted under another payer name.`; return `eCW shows ${fmt.usd(-d)} more posted than arrived by EFT in this period: part was paid by check or virtual card, or deposited outside the period.`; };
-    const rr=fams.map(fm=>({name:fm,e:(E[fm]||[0])[0],b:eft[fm]||0})); if(!payerSel||otherE||otherB) rr.push({name:'Other insurers',e:otherE,b:otherB});
-    const te=rr.reduce((a,r)=>a+r.e,0), tb=rr.reduce((a,r)=>a+r.b,0);
+    const tol=(e,b)=>Math.max(2000,0.03*Math.max(e,b));
+    const read=(r)=>{ const {e,b,s,k}=r; const got=b+s; const d=got-e;
+      if(e===0&&got===0) return 'Nothing posted in eCW and nothing received in this period.';
+      if(k&&k.notInEcw.amt>tol(e,got)/2) return `${fmt.usd(k.notInEcw.amt)} in ${k.notInEcw.n} checks are on file (scanned or logged in the tracker) but have no payment in eCW. Enter them.`+(k.unposted>1000?` Another ${fmt.usd(k.unposted)} is entered but not applied to claims.`:'');
+      if(Math.abs(d)<=tol(e,got)) return 'Matches. What arrived (EFT plus scanned checks) is posted in eCW.';
+      if(d>0) return `Received ${fmt.usd(d)} more than eCW shows on this period’s claims: remittances for earlier service dates, or not yet posted.`;
+      return s>0||b>0 ? `eCW posted ${fmt.usd(-d)} more than what is on file: checks not scanned into SharePoint, virtual-card payments, or money for this period that arrived outside it.` : `Pays by paper check and nothing is scanned for this period: its ${fmt.usd(e)} of postings sit inside the unidentified check deposits.`; };
+    const rr=fams.map(fm=>({name:fm,e:(E[fm]||[0])[0],b:eft[fm]||0,k:ckFam(fm)})); if(!payerSel||otherE||otherB) rr.push({name:'Other insurers',e:otherE,b:otherB,k:ckFam('Other insurers')});
+    rr.forEach(r=>{ r.s=r.k.scanned.amt; });
+    const te=rr.reduce((a,r)=>a+r.e,0), tb=rr.reduce((a,r)=>a+r.b,0), ts=rr.reduce((a,r)=>a+r.s,0);
+    const kAll=ckAgg(ck.filter(c=>rr.some(r=>r.name==='Other insurers'?!FAMS.includes(c.family):c.family===r.name)));
     const checks=sumCat(rows,'checks'); const patE=sl.reduce((a,c)=>a+c[M.patientPayments],0); const patB=sumCat(rows,'patient_card')+sumCat(rows,'patient_other');
-    const out=[...rr.map(r=>({...r,reading:read(r.e,r.b,r.name)})),
-      {name:'All insurers',e:te,b:tb,reading:te>tb?`Difference ${fmt.usd(te-tb)}: what eCW has posted beyond the EFTs. It must be inside the ${fmt.usd(checks)} of check deposits.`:`Bank received ${fmt.usd(tb-te)} more by EFT than eCW shows posted on this period's claims: payments for earlier service dates, or not yet posted.`,_class:'total'},
-      {name:'Check deposits (payer unknown)',e:null,b:checks,reading:te>tb?`If all of eCW's non-EFT postings (${fmt.usd(te-tb)}) are checks, about ${fmt.usd(checks-(te-tb))} of checks are either patient/program payments or insurance money not yet posted. Needs the check images to split.`:'The statement does not show who sent each check. Needs the check images to split.'},
-      {name:'Patients (cards + RepeatMD)',e:patE,b:patB,reading:`Patients paid ${fmt.usd(patB)} by card and through RepeatMD, but eCW claims show only ${fmt.usd(patE)} of patient payments. The rest is program fees, packages and products that never go through a claim, so the claim reports do not see them.`}];
+    const ckStart=CK&&CK.months.length?CK.months[0]:null; const checksSinceScans=ckStart?rows.filter(c=>c.cat==='checks'&&c.month>=ckStart).reduce((a,c)=>a+c.amount,0):0;
+    const out=[...rr.map(r=>({...r,reading:read(r)})),
+      {name:'All insurers',e:te,b:tb,s:ts,k:kAll,reading:(kAll.notInEcw.amt>5000?`${fmt.usd(kAll.notInEcw.amt)} in ${kAll.notInEcw.n} checks received and not posted in eCW. `:'')+(te>tb+ts?`eCW has posted ${fmt.usd(te-tb-ts)} beyond the EFTs and the scanned checks; it must be inside the unscanned part of the ${fmt.usd(checks)} of check deposits.`:`Received ${fmt.usd(tb+ts-te)} more than eCW shows posted on this period’s claims.`),_class:'total'},
+      {name:'Check deposits (payer unknown)',e:null,b:checks,s:ts,k:null,reading:ckStart?`The bank received ${fmt.usd(checks)} in checks; scanned checks in SharePoint total ${fmt.usd(ts)}. Scanning started ${fmt.monthLong(ckStart)}; from then on the bank received ${fmt.usd(checksSinceScans)} in checks, so scans cover ${fmt.pct(checksSinceScans?Math.min(1.5,ts/checksSinceScans):NaN)} of the deposits. The rest is patient checks and checks that were deposited without a scan.`:'The statement does not show who sent each check.'},
+      {name:'Patients (cards + RepeatMD)',e:patE,b:patB,s:0,k:null,reading:`Patients paid ${fmt.usd(patB)} by card and through RepeatMD, but eCW claims show only ${fmt.usd(patE)} of patient payments. The rest is program fees, packages and products that never go through a claim, so the claim reports do not see them.`}];
     const provSel=F.provider.get(), visitSel=F.visit.get();
-    el('reconHint').textContent=`Follows the period and payer filters. Left: what eCW says each insurer has paid on claims with service dates in the period. Right: what that insurer wired to the bank during the period.`+((provSel||visitSel)?' The provider and service filters apply to the eCW side only: bank deposits cannot be split by provider or service, so the two columns are not comparable while those filters are on.':'');
-    LASTB={sl,rows,E,eft,checks,te,tb};
+    el('reconHint').textContent=`Follows the period and payer filters. eCW posted: what eCW says each insurer paid on claims with service dates in the period. Bank EFT: what the insurer wired during the period. SharePoint checks: the paper checks scanned into the Insurance Checks folders in the period. Difference = EFT + checks − eCW.`+((provSel||visitSel)?' The provider and service filters apply to the eCW side only, so the columns are not comparable while those filters are on.':'')+(CK?'':' (No check feed loaded: the SharePoint column is empty.)');
+    LASTB={sl,rows,E,eft,checks,te,tb,ts,ck};
     out.forEach(o=>{ if(o._class==='total'){ o._class='total clickable'; o._row=true; } });
-    table(el('recon'), [{label:'Payer',render:r=>h('span',{style:'white-space:normal;display:block;min-width:150px',text:r.name})},{label:'eCW posted',num:1,render:r=>r.e==null?'–':fmt.usd(r.e)},{label:'Bank received',num:1,render:r=>fmt.usd(r.b)},{label:'Difference',num:1,render:r=>r.e==null?'–':fmt.usd(r.b-r.e)},{label:'Reading',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:360px;max-width:640px;white-space:normal;line-height:1.45',text:r.reading})}], out, {onRow:openRecon});
-    const eftOnly=rr.filter(r=>r.name==='Anthem Blue Cross / Blue Cross CA'||r.name==='Medicare Part B (Noridian)').reduce((a,r)=>a+r.e,0);
-    el('reconNote').innerHTML=`<strong>What this tells us.</strong> Medicare and Anthem are the only insurers that pay electronically. Blue Shield, Cigna, United and the rest pay by check, so their ${fmt.usd(Math.max(0,te-eftOnly))} of eCW postings on this period's claims sit somewhere inside ${fmt.usd(checks)} of check deposits. The first reconciliation question for billing is therefore: which checks were Blue Shield, and are all of them posted? Patient cash is a different story: the practice collects far more from patients than the claim reports show, because memberships and cash-pay services never become claims. Service dates and deposit dates differ, so for short periods the two columns are not expected to match line by line.`;
+    table(el('recon'), [{label:'Payer',render:r=>h('span',{style:'white-space:normal;display:block;min-width:150px',text:r.name})},{label:'eCW posted',num:1,render:r=>r.e==null?'–':fmt.usd(r.e)},{label:'Bank EFT',num:1,render:r=>r.s===r.b&&r.e==null?'':fmt.usd(r.b)},{label:'SharePoint checks',num:1,render:r=>r.k||r.e==null?fmt.usd(r.s):'–'},{label:'Difference',num:1,render:r=>r.e==null?'–':fmt.usd(r.b+r.s-r.e)},{label:'Reading',render:r=>h('span',{style:'font-size:12.5px;color:var(--ink-2);display:block;min-width:360px;max-width:640px;white-space:normal;line-height:1.45',text:r.reading})}], out, {onRow:openRecon});
+    renderLeaks(rr, kAll);
+    const leak=kAll.notInEcw.amt+kAll.trackerOnly.amt*0;
+    el('reconNote').innerHTML=`<strong>What this tells us.</strong> Medicare and Anthem pay electronically and the bank agrees with eCW for both. Blue Shield, Cigna, United and the rest pay by paper check; since ${ckStart?fmt.monthLong(ckStart):'the scans began'} every check is scanned into SharePoint, so those insurers can be matched too. `+(kAll.notInEcw.amt>0?`The leak is not in the bank but in posting: <strong>${fmt.usd(kAll.notInEcw.amt)} in ${kAll.notInEcw.n} checks</strong> have been received and never entered in eCW${kAll.unposted>0?`, and another ${fmt.usd(kAll.unposted)} was entered but not applied to claims`:''}. Until they are posted, eCW understates collections and keeps chasing balances that were already paid. `:'')+`Patient cash is a different story: the practice collects far more from patients than the claim reports show, because memberships and cash-pay services never become claims.`;
   }
   function collections(list, key, val){ const o={}; list.forEach(x=>{ o[x[key]]=(o[x[key]]||0)+x[val]; }); return o; }
   el('bankToggle').onclick=()=>{ const t=el('bankTable'); t.hidden=!t.hidden; el('bankToggle').textContent=t.hidden?'Show as table':'Hide table'; el('bankToggle').setAttribute('aria-expanded',String(!t.hidden)); };
@@ -1023,29 +1076,36 @@ button.ghost.gold:hover{background:#dcc48f}
   }
 
   function openRecon(r){
-    if(!LASTB) return; const {sl,rows,E,eft,checks,te,tb}=LASTB;
+    if(!LASTB) return; const {sl,rows,E,eft,checks,te,tb,ts,ck}=LASTB; const k=r.k||null;
     const body=openPanel('Why these two numbers differ', r.name, el('scope').textContent.replace('Showing: ','Within: '));
     const efam=r.name==='All insurers'?(c=>famOf(c)!=='Patient'):r.name==='Other insurers'?(c=>!['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna','Patient'].includes(famOf(c))):(c=>famOf(c)===r.name);
     const isPat=r.name.startsWith('Patients'), isChk=r.name.startsWith('Check deposits');
     const eByM={}; if(!isChk) sl.filter(isPat?()=>true:efam).forEach(c=>{ eByM[c[K.month]]=(eByM[c[K.month]]||0)+c[M[isPat?'patientPayments':'payerPayments']]; });
     const bByM=isPat?bankByMonth(rows,['patient_card','patient_other']):isChk?bankByMonth(rows,['checks']):(()=>{ const o={}; rows.filter(c=>c.cat==='insurance'&&(r.name==='All insurers'||c.source===r.name)).forEach(c=>{ o[c.month]=(o[c.month]||0)+c.amount; }); return o; })();
     const chkByM=bankByMonth(rows,['checks']);
-    const tiles=h('div',{class:'grid kpis',style:'margin-bottom:18px'}); [['eCW posted',r.e==null?'—':fmt.usd(r.e),'payments posted on claims with service dates in the period'],['Bank received',fmt.usd(r.b),isChk?'check deposits in the period':isPat?'cards and RepeatMD in the period':'EFTs from this payer in the period'],['Difference',r.e==null?'—':fmt.usd(r.b-r.e),'bank minus eCW']].forEach(([l,v,d])=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:l}),h('div',{class:'v',text:v}),h('div',{class:'d',text:d})); tiles.append(t); }); body.append(tiles);
+    const sp=r.s||0; const tiles=h('div',{class:'grid kpis',style:'margin-bottom:18px'}); [['eCW posted',r.e==null?'—':fmt.usd(r.e),'payments posted on claims with service dates in the period'],[isChk?'Bank check deposits':isPat?'Bank: cards + RepeatMD':'Bank EFT',fmt.usd(r.b),isChk?'check deposits in the period':isPat?'cards and RepeatMD in the period':'EFTs from this payer in the period'],...(isPat?[]:[['SharePoint checks',fmt.usd(sp),isChk?'all scanned insurer checks in the period':'scanned checks from this payer in the period']]),['Difference',r.e==null?'—':fmt.usd(r.b+(isChk?0:sp)-r.e),isChk?'—':'EFT + checks − eCW']].forEach(([l,v,d])=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:l}),h('div',{class:'v',text:v}),h('div',{class:'d',text:d})); tiles.append(t); }); body.append(tiles);
     const reasons=[];
     reasons.push(`<strong>Two different calendars.</strong> The eCW column is by <em>service date</em>: payments posted so far on claims for visits in the period. The bank column is by <em>deposit date</em>: money that arrived in the period, whatever visit it paid for. They only converge over long periods.`);
     const bMonths=Object.keys(bByM).filter(m=>bByM[m]>0).sort(); const firstEft=bMonths[0];
     if(!isPat&&!isChk&&r.b>0&&firstEft&&r.name!=='All insurers'&&r.name!=='Other insurers'){ const before=Object.entries(eByM).filter(([m])=>m<firstEft).reduce((a,[,v])=>a+v,0); if(before>1000) reasons.push(`<strong>Electronic payments from ${r.name} start in ${fmt.monthLong(firstEft)}.</strong> eCW shows ${fmt.usd(before)} paid on claims with earlier service dates. That money did not arrive by EFT, so it came by paper check or virtual card and sits inside the unidentified check deposits.`); }
-    if(!isPat&&!isChk&&r.b===0&&r.e>0) reasons.push(`<strong>${r.name} pays by paper check.</strong> No EFT from this payer appears on the statement. Its ${fmt.usd(r.e)} of eCW postings are inside the ${fmt.usd(checks)} of check deposits, which the statement does not break down by sender. Only the check images or the eCW payment log can match them.`);
+    if(!isPat&&!isChk&&r.b===0&&r.e>0&&!sp) reasons.push(`<strong>${r.name} pays by paper check.</strong> No EFT from this payer appears on the statement. Its ${fmt.usd(r.e)} of eCW postings are inside the ${fmt.usd(checks)} of check deposits, which the statement does not break down by sender. Only the check images or the eCW payment log can match them.`);
     if(!isPat&&!isChk&&r.e>r.b&&r.b>0) reasons.push(`<strong>Part was paid outside the EFT stream.</strong> Virtual card payments and paper checks from the same insurer post in eCW like any other payment but do not appear as an EFT on the statement.`);
     if(!isPat&&!isChk&&r.b>r.e) reasons.push(`<strong>The bank received more than eCW shows on this period’s claims.</strong> The extra is money for visits before the period (remittances always lag the visit), or remittances not yet posted in eCW.`);
     if(isPat) reasons.push(`<strong>Most patient money is not a claim.</strong> Memberships, packages, products and cash-pay services are charged by card or RepeatMD and never go through eCW billing, so the claim reports only see copays and coinsurance.`);
     if(isChk) reasons.push(`<strong>The statement does not say who wrote each check.</strong> Blue Shield, Cigna, Aetna, United and patient checks are all here. Of eCW’s ${fmt.usd(te-tb)} posted beyond the EFTs, all of it should be inside these deposits; the remainder is patient and program money or insurance money not yet posted.`);
+    if(k&&k.notInEcw.amt>0) reasons.push(`<strong>${fmt.usd(k.notInEcw.amt)} in ${k.notInEcw.n} checks are on file but not in eCW.</strong> The clinic received them (scan in SharePoint or entry in the Insurance Check Tracker) and eCW has no payment under those check numbers. This is money in the bank that the claims still show as owed.`);
+    if(k&&k.unposted>1000) reasons.push(`<strong>${fmt.usd(k.unposted)} is entered in eCW but not applied to claims.</strong> The payment exists; the allocation to claims was never finished.`);
+    if(k&&k.trackerOnly.amt>1000) reasons.push(`<strong>${k.trackerOnly.n} checks (${fmt.usd(k.trackerOnly.amt)}) are logged in the tracker without a scan.</strong> They are not in the SharePoint column; find and scan them.`);
+    if(k&&k.notCashed.amt>1000) reasons.push(`<strong>${fmt.usd(k.notCashed.amt)} in ${k.notCashed.n} scanned checks has not cleared the bank yet</strong> according to Blue Shield.`);
+    if(!isPat&&!isChk&&CK&&CK.months.length) reasons.push(`<strong>Scanning started ${fmt.monthLong(CK.months[0])}.</strong> Checks received before that have no SharePoint copy, so for earlier periods eCW will always show more than what is on file.`);
     reasons.push(`<strong>Timing at the edges.</strong> The eCW export is dated ${D.asOf}; the bank data ends ${fmt.week(D.bank.lastDate)}. Payments posted after the last statement day have no bank line yet.`);
     noteBox(body,'<strong>Reading:</strong><ul style="margin:8px 0 0 18px;padding:0">'+reasons.map(x=>`<li style="margin:4px 0">${x}</li>`).join('')+'</ul>');
     const ms=[...new Set([...Object.keys(eByM),...Object.keys(bByM)])].sort().reverse();
-    const mrows=ms.map(m=>({name:fmt.monthLong(m),e:eByM[m]||0,b:bByM[m]||0,c:chkByM[m]||0})); mrows.push({name:'Total',e:Object.values(eByM).reduce((a,v)=>a+v,0),b:Object.values(bByM).reduce((a,v)=>a+v,0),c:Object.values(chkByM).reduce((a,v)=>a+v,0),_class:'total'});
-    const cols=[{label:'Month',key:'name'}]; if(!isChk) cols.push({label:'eCW posted (by service month)',num:1,render:r2=>fmt.usd(r2.e)}); cols.push({label:(isChk?'Check deposits':isPat?'Bank: cards + RepeatMD':'Bank EFT')+' (by deposit month)',num:1,render:r2=>fmt.usd(r2.b)}); if(!isChk&&!isPat) cols.push({label:'All check deposits that month',num:1,render:r2=>fmt.usd(r2.c)});
+    const km=k?k.byMonth:{}; const ms2=[...new Set([...ms,...Object.keys(km)])].sort().reverse();
+    const mrows=ms2.map(m=>({name:fmt.monthLong(m),e:eByM[m]||0,b:bByM[m]||0,c:chkByM[m]||0,s:(km[m]||{}).scanned||0,ni:(km[m]||{}).notInEcw||0})); mrows.push({name:'Total',e:Object.values(eByM).reduce((a,v)=>a+v,0),b:Object.values(bByM).reduce((a,v)=>a+v,0),c:Object.values(chkByM).reduce((a,v)=>a+v,0),s:k?k.scanned.amt:0,ni:k?k.notInEcw.amt:0,_class:'total'});
+    const cols=[{label:'Month',key:'name'}]; if(!isChk) cols.push({label:'eCW posted (by service month)',num:1,render:r2=>fmt.usd(r2.e)}); cols.push({label:(isChk?'Check deposits':isPat?'Bank: cards + RepeatMD':'Bank EFT')+' (by deposit month)',num:1,render:r2=>fmt.usd(r2.b)}); if(k) cols.push({label:'SharePoint checks',num:1,render:r2=>fmt.usd(r2.s)},{label:'Of which not in eCW',num:1,render:r2=>r2.ni?fmt.usd(r2.ni):'–'}); if(!isChk&&!isPat) cols.push({label:'All check deposits that month',num:1,render:r2=>fmt.usd(r2.c)});
     table(section(body,'Month by month','Left: eCW payments on claims for visits in that month. Right: what the bank received that month. Most recent first.'),cols,mrows);
+    if(k){ const vr=Object.entries(k.byVerdict).map(([v,x])=>({name:v,n:x.n,amt:x.amt,help:(CK.verdictHelp||{})[v]||''})).sort((a,b)=>b.amt-a.amt); table(section(body,'Checks on file, by what eCW says about them','From the reconciliation run of '+(CK.reconciledAt||'—')+'. Each check is looked up in eCW by its number.'),[{label:'Verdict',key:'name'},{label:'Checks',num:1,render:x=>fmt.int(x.n)},{label:'Amount',num:1,render:x=>fmt.usd(x.amt)},{label:'Meaning',render:x=>h('span',{style:'font-size:12.5px;color:var(--ink-2);white-space:normal;display:block;min-width:300px',text:x.help})}],vr); }
   }
 
   function openDetail(dim, name){
