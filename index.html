@@ -324,6 +324,9 @@ button.ghost.gold:hover{background:#dcc48f}
         <div id="bankChart"></div>
         <button class="toggle" id="bankToggle" type="button" aria-expanded="false">Show as table</button>
         <div id="bankTable" hidden></div>
+        <h3 style="margin:22px 0 4px;font-size:16px;font-weight:600">What insurance money came in, by payer</h3>
+        <p class="hint" id="insByPayerHint" style="margin:2px 0 10px"></p>
+        <div id="insByPayer"></div>
       </div>
       <hr class="sep">
       <div>
@@ -636,9 +639,9 @@ button.ghost.gold:hover{background:#dcc48f}
   el('reset').onclick=()=>{ el('fPeriod')._reset(); F.payer.reset(); F.provider.reset(); F.visit.reset(); render(); };
 
   const slice = () => {
-    const wt = weekTest(activeRange());
+    const r0=activeRange(); const wt = weekTest(r0); const m0=r0?iso(r0[0]).slice(0,7):'', m1=r0?iso(r0[1]).slice(0,7):'9999';
     const payer = F.payer.get(), prov = F.provider.get(), visit = F.visit.get();
-    return cells.filter(c => wt(c[K.week]) && (!payer||payer.has(c[K.payer])) && (!prov||prov.has(c[K.provider])) && (!visit||visit.has(c[K.visit])));
+    return cells.filter(c => wt(c[K.week]) && c[K.month]>=m0 && c[K.month]<=m1 && (!payer||payer.has(c[K.payer])) && (!prov||prov.has(c[K.provider])) && (!visit||visit.has(c[K.visit])));
   };
   const sum = (rows, m) => rows.reduce((a,c)=>a+c[M[m]],0);
   const group = (rows, dim) => { const g=new Map(); rows.forEach(c=>{ const k=c[K[dim]]; if(!g.has(k)) g.set(k,[]); g.get(k).push(c); }); return g; };
@@ -1027,6 +1030,17 @@ button.ghost.gold:hover{background:#dcc48f}
     const trows=xs.map(x=>{ const rs=rows.filter(c=>c[key]===x); const o={name:labLong(x)}; series.forEach(([cat])=>o[cat]=sumCat(rs,cat)); o.total=revenueCats.reduce((a,c)=>a+o[c],0); o.xfer=sumCat(rs,'transfer')+sumCat(rs,'financing'); return o; });
     const tt={name:'Total',_class:'total'}; series.forEach(([cat])=>tt[cat]=trows.reduce((a,r)=>a+r[cat],0)); tt.total=trows.reduce((a,r)=>a+r.total,0); tt.xfer=trows.reduce((a,r)=>a+r.xfer,0); trows.push(tt);
     table(el('bankTable'), [{label:byWeek?'Week':'Month',key:'name'},...series.map(([cat,name])=>({label:name,num:1,render:r=>r[cat]?fmt.usd(r[cat]):'–'})),{label:'Revenue deposits',num:1,render:r=>h('strong',{text:fmt.usd(r.total)})},{label:'Transfers & loans',num:1,render:r=>r.xfer?fmt.usd(r.xfer):'–'}], trows);
+    // insurance money received, by payer: EFTs by sender name + checks scanned into SharePoint by payer, by the date they arrived
+    (()=>{ const PF=['Anthem Blue Cross / Blue Cross CA','Medicare Part B (Noridian)','Blue Shield of California','Cigna','United / UMR','Aetna']; const famLabel=f=>PF.includes(f)?f:'Other insurers';
+      const rg=activeRange(); const byWeek2=byWeek||(rg&&(rg[1]-rg[0])/864e5<=35); const key2=byWeek2?'week':'month'; const labLong2=byWeek2?fmt.weekLong:fmt.monthLong;
+      const ckc=ckRows().filter(c=>c.kind==='scanned'); const eftc=rows.filter(c=>c.cat==='insurance');
+      const xs2=[...new Set([...eftc.map(c=>c[key2]),...ckc.map(c=>c[key2])])].sort().reverse();
+      const prow=xs2.map(x=>{ const o={name:labLong2(x),_x:x,total:0,chk:0}; eftc.filter(c=>c[key2]===x).forEach(c=>{ const f=famLabel(c.source); o[f]=(o[f]||0)+c.amount; o.total+=c.amount; }); ckc.filter(c=>c[key2]===x).forEach(c=>{ const f=famLabel(c.family); o[f]=(o[f]||0)+c.amount; o.total+=c.amount; o.chk+=c.amount; }); o.bankChk=rows.filter(c=>c.cat==='checks'&&c[key2]===x).reduce((a,c)=>a+c.amount,0); return o; });
+      const ptot={name:'Total',_class:'total',total:0,chk:0,bankChk:0}; prow.forEach(r=>{ [...PF,'Other insurers','total','chk','bankChk'].forEach(k=>{ if(r[k]) ptot[k]=(ptot[k]||0)+r[k]; }); }); prow.push(ptot);
+      const pcols=[{label:byWeek2?'Week':'Month',key:'name'},...[...PF,'Other insurers'].filter(f=>ptot[f]).map(f=>({label:f,num:1,render:r=>r[f]?fmt.usd(r[f]):'–'})),{label:'Insurance money received',num:1,render:r=>h('strong',{text:fmt.usd(r.total)})},{label:'Bank check deposits (all senders)',num:1,render:r=>r.bankChk?fmt.usd(r.bankChk):'–'}];
+      table(el('insByPayer'),pcols,prow,{empty:'No insurance deposits in this period.'});
+      el('insByPayerHint').textContent=`By the date the money arrived. Anthem / Blue Cross CA and Medicare: electronic deposits on the bank statement. Every other insurer: paper checks scanned into SharePoint on the day they were deposited (scanning started ${CK&&CK.months.length?fmt.monthLong(CK.months[0]):'—'}). The last column is the bank's own check-deposit total for comparison; the gap between it and the scanned checks is patient checks and checks deposited without a scan.`;
+    })();
     // reconciliation: follows the period and payer filters (period = service date on the eCW side, deposit date on the bank and SharePoint sides)
     const sl=slice(); const E={}; sl.forEach(c=>{ const f=famOf(c); (E[f]=E[f]||[0,0])[0]+=c[M.payerPayments]; E[f][1]+=c[M.patientPayments]; });
     const payerSel=F.payer.get(); const selFams=payerSel?new Set(cells.filter(c=>payerSel.has(c[K.payer])).map(famOf)):null;
