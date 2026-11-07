@@ -99,6 +99,12 @@ button.ghost:hover{background:rgba(212,183,122,.12)}
 @media (max-width:760px){.ms.period .ms-pop{width:auto;max-height:80vh;overflow-y:auto}.pp-grid{grid-template-columns:1fr}}
 .custom-range input{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:10px 12px;min-width:150px}
 .filters .scope{margin-left:auto;align-self:flex-end;font-size:13px;color:var(--ink-2)}
+.basis-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:8px 0}
+@media (max-width:760px){.basis-grid{grid-template-columns:1fr}}
+.basis-pill{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px;vertical-align:middle}
+.basis-pill.svc{background:var(--surface);border:1px solid var(--axis);color:var(--ink-2)}
+.basis-pill.cash{background:var(--gold);color:#1a1a1a}
+.basis a{color:var(--gold-2);text-decoration:underline}
 .filters .basis{flex:1 1 100%;font-size:12.5px;color:var(--ink-2);background:var(--surface-3);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:8px 12px;line-height:1.45}
 .grid{display:grid;gap:24px}
 .grid>*{min-width:0}
@@ -302,7 +308,12 @@ button.ghost.gold:hover{background:#dcc48f}
     <label>Service <div class="ms" id="fVisit"></div></label>
     <button class="ghost reset" id="reset" type="button">Reset</button>
     <div class="scope" id="scope"></div>
-    <div class="basis"><strong>Basis: date of service.</strong> Every figure is for claims whose service date falls in the selected period. “Collected” is all cash posted to date on those claims, not cash received during the period. The “Cash received” tile and the “Deposits in the bank account” section are the exception: they come from the bank statements and the scanned checks in SharePoint, and count money by the date it arrived.</div>
+    <div class="basis" id="basisGuide"><strong>Two ways to count money on this page.</strong> Every card carries a label saying which one it uses.
+      <div class="basis-grid">
+        <div><span class="pill basis-pill svc">By date of service</span> <strong>How well each month of work gets paid.</strong> A claim belongs to the month the patient was seen; “Collected” is everything paid on it up to the export date, whenever the money arrived. Answers: <em>are September’s visits being paid?</em> Recent months always look low because insurers take 30–90 days.</div>
+        <div><span class="pill basis-pill cash">By deposit date</span> <strong>What actually arrived at the bank.</strong> Money is counted on the day it was deposited, whatever visit it paid for. Answers: <em>what came in last week, and from whom?</em> See <a href="#bankSection">Deposits in the bank account</a> and <a href="#insByPayer">What insurance money came in, by payer</a>.</div>
+      </div>
+      The two never match for a short period: last week’s deposits pay for visits from weeks or months ago. The <a href="#reconSection">Bank vs. eCW</a> table is where they are reconciled.</div>
   </section>
 
   <p class="hint" style="margin:0 0 10px">Click any figure to see how it is built and why it differs from the others.</p>
@@ -311,7 +322,7 @@ button.ghost.gold:hover{background:#dcc48f}
   <section class="card section" id="bankSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Cash received</div><h2>Deposits in the bank account</h2><p class="hint" id="bankHint"></p></div>
-      <div class="legend"><span class="pill" id="bankScope">Basis: deposit date, exact days · follows the Period filter only</span></div>
+      <div class="legend"><span class="pill basis-pill cash" id="bankScope">Basis: deposit date, exact days · follows the Period filter only</span></div>
     </div>
     <div class="grid kpis" id="bankKpis" style="margin:18px 0 0"></div>
     <hr class="sep">
@@ -329,7 +340,7 @@ button.ghost.gold:hover{background:#dcc48f}
         <div id="insByPayer"></div>
       </div>
       <hr class="sep">
-      <div>
+      <div id="reconSection">
         <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Bank vs. eCW, by payer</h3>
         <p class="hint" id="reconHint" style="margin:2px 0 10px"></p>
         <div id="recon"></div>
@@ -348,7 +359,7 @@ button.ghost.gold:hover{background:#dcc48f}
   <section class="grid two section">
     <div class="card">
       <div class="card-head">
-        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service: each column is the month (or week) the service happened, and “Collected” is everything paid so far on those claims. Recent months look low partly because their claims have not been adjudicated yet.</p></div>
+        <div><h2 id="monthlyTitle">Billed vs. collected by month</h2><p class="hint">By date of service: each column is the month (or week) the service happened, and “Collected” is everything paid so far on those claims. Recent months look low partly because their claims have not been adjudicated yet. This chart does not show what came in last week; for that use <a href="#insByPayer" style="color:var(--gold-2)">What insurance money came in</a> below.</p></div>
         <div class="legend"><span class="seg" role="group" aria-label="Granularity"><button type="button" class="on" data-g="month">Month</button><button type="button" data-g="week">Week</button></span><span><i class="swatch" style="background:var(--s1)"></i>Billed</span><span><i class="swatch" style="background:var(--s2)"></i>Collected</span></div>
       </div>
       <div id="monthly"></div>
@@ -636,6 +647,11 @@ button.ghost.gold:hover{background:#dcc48f}
   ['fPeriod','fPayer','fProvider','fVisit'].forEach(id=>el(id).addEventListener('change',render));
   el('payRows').addEventListener('change',render);
   el('modToggle').onclick=()=>{ modMode=modMode==='families'?'types':'families'; el('modToggle').textContent=modMode==='families'?'Every visit type':'Group by modality'; render(); };
+  // Label every card with the basis it uses, so nobody has to guess which calendar a figure follows.
+  document.querySelectorAll('section.card').forEach(sec=>{ const head=sec.querySelector(':scope > .card-head'); if(!head) return; const isCash=sec.id==='bankSection'; const isStatic=sec.id==='agingSection'; if(isStatic) return;
+    let leg=head.querySelector(':scope > .legend'); if(!leg){ leg=h('div',{class:'legend'}); head.append(leg); }
+    if(isCash) return; leg.prepend(h('span',{class:'pill basis-pill svc',text:'By date of service',title:'Claims whose service date is in the selected period; collected = paid so far on those claims.'})); });
+  document.getElementById('kpis').insertAdjacentHTML('afterend','');
   el('reset').onclick=()=>{ el('fPeriod')._reset(); F.payer.reset(); F.provider.reset(); F.visit.reset(); render(); };
 
   const slice = () => {
