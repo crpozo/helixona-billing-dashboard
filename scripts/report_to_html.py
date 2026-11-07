@@ -19,7 +19,7 @@ while i < len(lines):
     ln = lines[i]
     if ln.strip() == "":
         i += 1; continue
-    if re.match(r"^\d+\. [A-Z]", ln):
+    if re.match(r"^\d+\. [A-Z]", ln) or re.match(r"^[A-Z][A-Z0-9 ,'’()&/-]{8,}$", ln.strip()) or ln.startswith('DATA NOTE:'):
         body.append(f"<h3 style='margin:22px 0 8px;font-size:15px'>{html.escape(ln)}</h3>"); i += 1; continue
     if ln.startswith("  "):  # table block: rows indented by two spaces
         rows = []
@@ -38,7 +38,7 @@ while i < len(lines):
             body.append(t + "</table>")
         continue
     para = []
-    while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("  ") and not re.match(r"^\d+\. [A-Z]", lines[i]):
+    while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("  ") and not re.match(r"^\d+\. [A-Z]", lines[i]) and not re.match(r"^[A-Z][A-Z0-9 ,'’()&/-]{8,}$", lines[i].strip()):
         para.append(lines[i]); i += 1
     body.append("<p style='margin:0 0 12px'>" + link(" ".join(para)) + "</p>")
 
