@@ -29,13 +29,15 @@ while i < len(lines):
         if all(len(r) == 3 and r[1].endswith("claims") for r in rows):
             body.append("<table style='border-collapse:collapse;margin:4px 0 10px'>" + "".join(
                 f"<tr><td style='padding:2px 18px 2px 0'>{html.escape(r[0])}</td><td style='padding:2px 18px 2px 0;text-align:right'>{html.escape(r[1])}</td><td style='padding:2px 0;text-align:right'>{html.escape(r[2])}</td></tr>" for r in rows) + "</table>")
-        else:
+        elif not any(re.search(r"[\d$]", c) for c in rows[0]):
             hdr, data = rows[0], rows[1:]
             t = "<table style='border-collapse:collapse;margin:4px 0 10px'><tr>" + "".join(
                 f"<th style='text-align:{'left' if j==0 else 'right'};padding:2px 18px 4px 0;border-bottom:1px solid #999;font-weight:600'>{html.escape(c)}</th>" for j, c in enumerate(hdr)) + "</tr>"
             for r in data:
                 t += "<tr>" + "".join(f"<td style='text-align:{'left' if j==0 else 'right'};padding:2px 18px 2px 0'>{html.escape(c)}</td>" for j, c in enumerate(r)) + "</tr>"
             body.append(t + "</table>")
+        else:
+            body.append("<table style='border-collapse:collapse;margin:4px 0 10px'>" + "".join("<tr>" + "".join(f"<td style='padding:2px 18px 2px 0;text-align:{'left' if j==0 else 'right'}'>{html.escape(c)}</td>" for j, c in enumerate(r)) + "</tr>" for r in rows) + "</table>")
         continue
     para = []
     while i < len(lines) and lines[i].strip() != "" and not lines[i].startswith("  ") and not re.match(r"^\d+\. [A-Z]", lines[i]) and not re.match(r"^[A-Z][A-Z0-9 ,'’()&/-]{8,}$", lines[i].strip()):
