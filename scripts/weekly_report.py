@@ -14,7 +14,7 @@ DASHBOARD = 'https://crpozo.github.io/helixona-billing-dashboard/'
 MODALITY = [('Mito Boost', r'^(mini )?mito'), ('Foundational Flow', r'foundational flow'), ('Vitamin C IV', r'vit c'), ('EBOO', r'eboo'),
             ('Other IVs', r'essential amino|cellular boost|core restore|chelation|mast cell|detox prime|hydration|iron blend|iv cash add on|migraine|myers|nad'),
             ('Erchonia Laser', r'erchonia|laser'), ('Trigger Point', r'trigger point'), ('Acupuncture', r'acupuncture'), ('Chiropractic', r'chiro'),
-            ('Pellets', r'pellets'), ('PRP', r'\bprp\b'), ('Energetics', r'scenar|microcurrent|biocharger|lymph|biomod|nano'),
+            ('Pellets', r'pellets'), ('PRP', r'\bprp\b'), ('Nano Bath', r'nano'), ('Energetics', r'scenar|microcurrent|biocharger|lymph|biomod'),
             ('Diagnostics & labs', r'diagnostic|lab draw|blood draw|mead'), ('Office visits', r'follow ?up|new patient|baseline|telemedicine|transfer of care|level 2|cognitive')]
 IV_FAMS = {'Mito Boost', 'Foundational Flow', 'Vitamin C IV', 'EBOO', 'Other IVs'}
 FAMILY = {'Anthem Blue Cross': 'Anthem Blue Cross / Blue Cross CA', 'Blue Cross California': 'Anthem Blue Cross / Blue Cross CA', 'BlueCross BlueShield': 'Anthem Blue Cross / Blue Cross CA',
