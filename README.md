@@ -21,6 +21,17 @@ from GitHub Pages (no backend, no build step).
 
 3. Commit `data.js` and push. GitHub Pages redeploys automatically.
 
+Three more eCW reports feed their own whole-practice sections: 31.01 Aging Summary (`--aging`), 13.07 Visit
+Counts (`--visits`) and 36.22 Claim Level Denials (`--denials`). To refresh only those and keep the claim
+figures already in `data.js`, leave the 361.05 export out:
+
+```bash
+python3 scripts/build_data.py --aging "31.01 - Aging Summary Analysis Report.xlsx" --visits "13.07 - Visit Counts.xlsx" --denials "36.22 - Claim Level Denials.xlsx" --reports-as-of 2026-11-15 --out data.js
+```
+
+`--reports-as-of` is the day the reports were run (these exports carry no run date). Only totals per payer,
+visit status and visit type are written.
+
 Do **not** commit the Excel export itself: it contains patient names and account numbers.
 
 ## Publishing on GitHub Pages

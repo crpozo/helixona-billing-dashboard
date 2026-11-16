@@ -425,10 +425,55 @@ button.ghost.gold:hover{background:#dcc48f}
       </div>
     </div>
     <hr class="sep">
-    <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By service</h3>
-    <p class="hint">Top services by outstanding balance; the rest are folded into “Other”.</p>
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:600" id="agingByTitle">By service</h3>
+    <p class="hint" id="agingByHint">Top services by outstanding balance; the rest are folded into “Other”.</p>
     <div id="agingVisits"></div>
+    <div class="note" id="agingSub" hidden></div>
     <div class="note" id="agingNote"></div>
+  </section>
+
+  <section class="card section" id="visitsSection" hidden>
+    <div class="card-head">
+      <div><div class="eyebrow" style="color:var(--gold-2)">Schedule</div><h2>Visits and note locking (eCW visit counts)</h2><p class="hint" id="visitsHint"></p></div>
+      <div class="legend"><span class="pill">Whole practice · not affected by the filters above</span></div>
+    </div>
+    <div class="grid kpis" id="visitsKpis" style="margin:18px 0 0"></div>
+    <hr class="sep">
+    <div class="grid two">
+      <div>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By visit status</h3>
+        <p class="hint">A note can be billed once it is locked. “Not locked” on a visit that already happened is work waiting for the provider.</p>
+        <div id="visitsStatus"></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By visit type</h3>
+        <p class="hint">Top visit types by number of visits; the rest are folded into “Other”. Missed = cancelled, no-show or rescheduled.</p>
+        <div id="visitsType"></div>
+      </div>
+    </div>
+    <div class="note" id="visitsNote"></div>
+  </section>
+
+  <section class="card section" id="denialsSection" hidden>
+    <div class="card-head">
+      <div><div class="eyebrow" style="color:var(--gold-2)">Denials</div><h2>Claim denials by payer (eCW denial report)</h2><p class="hint" id="denialsHint"></p></div>
+      <div class="legend"><span class="pill">Whole practice · not affected by the filters above</span></div>
+    </div>
+    <div class="grid kpis" id="denialsKpis" style="margin:18px 0 0"></div>
+    <hr class="sep">
+    <div class="grid two">
+      <div>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By payer</h3>
+        <p class="hint">Number of denials recorded and how many patients they touch.</p>
+        <div id="denialsPayer"></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">By visit status</h3>
+        <p class="hint">Status of the visit the denied claim belongs to.</p>
+        <div id="denialsStatus"></div>
+      </div>
+    </div>
+    <div class="note" id="denialsNote"></div>
   </section>
   <section class="card section">
     <div class="card-head">
@@ -648,7 +693,7 @@ button.ghost.gold:hover{background:#dcc48f}
   el('payRows').addEventListener('change',render);
   el('modToggle').onclick=()=>{ modMode=modMode==='families'?'types':'families'; el('modToggle').textContent=modMode==='families'?'Every visit type':'Group by modality'; render(); };
   // Label every card with the basis it uses, so nobody has to guess which calendar a figure follows.
-  document.querySelectorAll('section.card').forEach(sec=>{ const head=sec.querySelector(':scope > .card-head'); if(!head) return; const isCash=sec.id==='bankSection'; const isStatic=sec.id==='agingSection'; if(isStatic) return;
+  document.querySelectorAll('section.card').forEach(sec=>{ const head=sec.querySelector(':scope > .card-head'); if(!head) return; const isCash=sec.id==='bankSection'; const isStatic=['agingSection','visitsSection','denialsSection'].includes(sec.id); if(isStatic) return;
     let leg=head.querySelector(':scope > .legend'); if(!leg){ leg=h('div',{class:'legend'}); head.append(leg); }
     if(isCash) return; leg.prepend(h('span',{class:'pill basis-pill svc',text:'By date of service',title:'Claims whose service date is in the selected period; collected = paid so far on those claims.'})); });
   document.getElementById('kpis').insertAdjacentHTML('afterend','');
@@ -1272,19 +1317,75 @@ button.ghost.gold:hover{background:#dcc48f}
     ], [...bands, {band:'Total',patients:A.patients.withBalance,balance:bands.reduce((a,x)=>a+x.balance,0),_class:'total'}]);
     el('agingBands').querySelectorAll('td:nth-child(3)').forEach(td=>td.classList.add('bar-cell'));
     el('agingConc').innerHTML = `The <strong>10 largest</strong> accounts hold <strong>${fmt.pct(A.patients.top10Share)}</strong> of everything outstanding; the largest 25 hold ${fmt.pct(A.patients.top25Share)} and the largest 50 hold ${fmt.pct(A.patients.top50Share)}. Working those accounts first moves the total fastest.`;
-    // by service
-    const vr = Object.entries(A.byVisit).map(([name,v])=>({name,v})).sort((a,b)=>b.v[mi.balance]-a.v[mi.balance]);
+    // by service (visit-type layout of the report) or by payer (payer layout)
+    const byPayer = !A.byVisit && A.byPayer;
+    if(byPayer){ el('agingByTitle').textContent='By payer'; el('agingByHint').textContent='Top payers by outstanding balance, as eCW names them; the rest are folded into “Other”.'; }
+    const vr = Object.entries(A.byVisit||A.byPayer||{}).map(([name,v])=>({name,v})).sort((a,b)=>b.v[mi.balance]-a.v[mi.balance]);
     const topV=vr.slice(0,10), rest=vr.slice(10);
     const sumV = list => { const o=new Array(A.measures.length).fill(0); list.forEach(r=>r.v.forEach((x,i)=>o[i]+=x)); return o; };
-    const rowsV=[...topV]; if(rest.length) rowsV.push({name:`Other (${rest.length} services)`,v:sumV(rest),_class:'other'}); rowsV.push({name:'Total',v:T,_class:'total'});
-    const cols=[{label:'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.v[mi.claims])}];
+    const rowsV=[...topV]; if(rest.length) rowsV.push({name:`Other (${rest.length} ${byPayer?'payers':'services'})`,v:sumV(rest),_class:'other'}); rowsV.push({name:'Total',v:T,_class:'total'});
+    const cols=[{label:byPayer?'Payer':'Service',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.v[mi.claims])}];
     labels.forEach((lb,i)=>cols.push({label:lb.replace(' days',''),num:1,render:r=>fmt.usd(r.v[mi['b'+i]])}));
     cols.push({label:'Outstanding',num:1,render:r=>fmt.usd(r.v[mi.balance])});
     cols.push({label:'Over 90 d',num:1,render:r=>{ const o=(r.v[mi.b3]+r.v[mi.b4]+r.v[mi.b5]+r.v[mi.b6]); const sh=r.v[mi.balance]>0?o/r.v[mi.balance]:NaN; return h('span',{class:'pill '+(sh<0.4?'good':sh<0.6?'warn':'crit'),text:fmt.pct(sh)}); }});
     table(el('agingVisits'), cols, rowsV);
+    const sub=[];
+    if(A.notSubmitted>0) sub.push(`<strong>${fmt.usd(A.notSubmitted)}</strong>${A.notSubmittedClaims?` (${fmt.int(A.notSubmittedClaims)} claims)`:''} of the outstanding balance is on <strong>claims that have not been submitted</strong> to the payer yet. That amount is already inside the age buckets above, it is not on top of them.`);
+    if(A.over180){ const o=A.over180.values, last=o[o.length-1]; sub.push(`Inside the over-180-days bucket, <strong>${fmt.usd(o.slice(0,3).reduce((a,x)=>a+x,0))}</strong> is 181–270 days old, <strong>${fmt.usd(o.slice(3,6).reduce((a,x)=>a+x,0))}</strong> is 271–360 days old and <strong>${fmt.usd(last)}</strong> is older than a year.`); }
+    el('agingSub').hidden=!sub.length; el('agingSub').innerHTML=sub.join(' ');
     el('agingNote').innerHTML = `<strong>Two different reports.</strong> The figures above come from the eCW aging report, which lists every open balance in the practice as of ${A.asOf}, aged by claim date. The “Open balance by age” chart higher up is computed from the claim-level export (service dates from July 2025 on, aged by date of service), so the two totals differ slightly. Use this section for the official A/R number; use the sections above to drill into payers and months.`;
   }
   renderAging();
+
+  // ---------- eCW visit counts 13.07 and claim denials 36.22 (static, whole practice) ----------
+  const tiles=(node,kp)=>{ node.innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:k.l}),h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); node.append(t); }); };
+  function renderVisits(){
+    const V=D.visits; if(!V) return;
+    el('visitsSection').hidden=false;
+    const mi=Object.fromEntries(V.measures.map((m,i)=>[m,i])); const T=V.total, n=T[mi.visits];
+    const lost=T[mi.cancelled]+T[mi.noShow]+T[mi.rescheduled], kept=n-lost;
+    const st=Object.entries(V.byStatus).map(([name,v])=>({name,v,kind:V.statusKind[name]}));
+    const doneOpen=st.filter(r=>r.name==='Check Out'||r.name==='IV Complete').reduce((a,r)=>a+r.v[mi.unlocked],0);
+    el('visitsHint').textContent=`eCW report 13.07 · received ${V.asOf} · one row per appointment, every status · ${fmt.int(n)} appointments for ${fmt.int(V.patients)} patients. The export carries no dates, so it cannot be split by week or month.`;
+    tiles(el('visitsKpis'),[
+      {l:'Appointments in the report', v:fmt.int(n), d:`${fmt.int(V.patients)} patients · ${fmt.int(kept)} not cancelled`},
+      {l:'Cancelled, no-show or rescheduled', v:fmt.int(lost), d:`${fmt.pct(lost/n)} of appointments · ${fmt.int(T[mi.cancelled])} cancelled, ${fmt.int(T[mi.noShow])} no-show, ${fmt.int(T[mi.rescheduled])} rescheduled`},
+      {l:'Notes locked', v:fmt.int(T[mi.locked]), d:`${fmt.pct(T[mi.locked]/kept)} of the appointments that were not cancelled`},
+      {l:'Checked out, note not locked', v:fmt.int(doneOpen), d:'Check Out or IV Complete visits still open: cannot be billed yet'},
+    ]);
+    const maxS=Math.max(...st.map(r=>r.v[mi.visits]));
+    const lockPill=r=>{ if(r.kind&&r.kind!=='kept') return h('span',{class:'pill',text:'—'}); const sh=r.v[mi.visits]?r.v[mi.locked]/r.v[mi.visits]:NaN; return h('span',{class:'pill '+(sh>=0.9?'good':sh>=0.5?'warn':'crit'),text:fmt.pct(sh)}); };
+    table(el('visitsStatus'),[{label:'Visit status',key:'name'},{label:'Visits',num:1,render:r=>fmt.int(r.v[mi.visits])},{label:'',render:r=>inlineBar(r.v[mi.visits],maxS)},{label:'Locked',num:1,render:r=>fmt.int(r.v[mi.locked])},{label:'Not locked',num:1,render:r=>fmt.int(r.v[mi.unlocked])},{label:'Locked %',num:1,render:lockPill}],
+      [...st.sort((a,b)=>b.v[mi.visits]-a.v[mi.visits]),{name:'Total',v:T,kind:'kept',_class:'total'}]);
+    el('visitsStatus').querySelectorAll('td:nth-child(3)').forEach(td=>td.classList.add('bar-cell'));
+    const ty=Object.entries(V.byType).map(([name,v])=>({name,v})).sort((a,b)=>b.v[mi.visits]-a.v[mi.visits]);
+    const top=ty.slice(0,12), rest=ty.slice(12); const sumV=l=>{ const o=new Array(V.measures.length).fill(0); l.forEach(r=>r.v.forEach((x,i)=>o[i]+=x)); return o; };
+    const rowsT=[...top]; if(rest.length) rowsT.push({name:`Other (${rest.length} visit types)`,v:sumV(rest),_class:'other'}); rowsT.push({name:'Total',v:T,_class:'total'});
+    const gone=r=>r.v[mi.cancelled]+r.v[mi.noShow]+r.v[mi.rescheduled];
+    table(el('visitsType'),[{label:'Visit type',key:'name'},{label:'Visits',num:1,render:r=>fmt.int(r.v[mi.visits])},{label:'Missed',num:1,render:r=>fmt.int(gone(r))},{label:'Locked',num:1,render:r=>fmt.int(r.v[mi.locked])},{label:'Not locked',num:1,render:r=>fmt.int(r.v[mi.unlocked]-gone(r))}],rowsT);
+    el('visitsNote').innerHTML=`<strong>How to read it.</strong> This report counts every appointment on the schedule, including cancellations and visits with no charge, so its total is not comparable with the claim counts in the sections above. “Not locked” by visit type leaves out cancelled, no-show and rescheduled appointments. ${fmt.int(T[mi.followUp])} appointments are flagged by eCW as requiring follow-up and ${fmt.int(T[mi.markedDone])} are marked done.`;
+  }
+  renderVisits();
+  function renderDenials(){
+    const N=D.denials; if(!N) return;
+    el('denialsSection').hidden=false;
+    const T=N.total, n=T[1]; const py=Object.entries(N.byPayer).map(([name,v])=>({name,v})).sort((a,b)=>b.v[1]-a.v[1]);
+    const stt=Object.entries(N.byStatus).map(([name,v])=>({name,v})).sort((a,b)=>b.v[1]-a.v[1]);
+    el('denialsHint').textContent=`eCW report 36.22 · received ${N.asOf} · ${fmt.int(n)} denials on ${fmt.int(T[2])} patients, ${py.length} payers.`;
+    tiles(el('denialsKpis'),[
+      {l:'Denials recorded', v:fmt.int(n), d:`${fmt.int(T[2])} patients · ${py.length} payers`},
+      {l:'Largest payer', v:fmt.pct(py[0].v[1]/n), d:`${py[0].name}: ${fmt.int(py[0].v[1])} denials, ${fmt.int(py[0].v[2])} patients`},
+      {l:'Denials per patient', v:(n/T[2]).toFixed(1), d:'Average across the patients with at least one denial'},
+      {l:'Denial amount in the report', v:fmt.usd(T[0]), d:T[0]?'Sum of the amounts eCW lists':'eCW lists $0 on every line: only the counts are usable'},
+    ]);
+    const mx=py[0].v[1];
+    const cols=lbl=>[{label:lbl,key:'name'},{label:'Denials',num:1,render:r=>fmt.int(r.v[1])},{label:'',render:r=>inlineBar(r.v[1],mx)},{label:'Patients',num:1,render:r=>isFinite(r.v[2])?fmt.int(r.v[2]):'—'},{label:'Share',num:1,render:r=>fmt.pct(r.v[1]/n)}];
+    table(el('denialsPayer'),cols('Payer'),[...py,{name:'Total',v:T,_class:'total'}]);
+    table(el('denialsStatus'),cols('Visit status'),[...stt,{name:'Total',v:[T[0],T[1],NaN],_class:'total'}]);
+    document.querySelectorAll('#denialsPayer td:nth-child(3), #denialsStatus td:nth-child(3)').forEach(td=>td.classList.add('bar-cell'));
+    el('denialsNote').innerHTML=`<strong>What this does and does not show.</strong> The report only includes the payers whose denials are posted in eCW (${py.map(r=>r.name).join(', ')}). Blue Shield, Cigna and United, which hold most of the outstanding balance, do not appear at all: either the report was run for these payers only or their denials are not being posted in eCW. It does not mean they have none. A patient can be counted under more than one visit status, so the patient column is not added up there.`;
+  }
+  renderDenials();
 
 
   const ANALYSIS_EN = "### The headline\nHelixona has billed **$10.17M** on the claims in this export (July 2025 through November 3, 2026) and eCW shows **$1.68M** collected on them. After removing the insurer discounts that were never collectible, the collection rate is **21%**. **$6.78M** of claim balances are still open, 72% of them older than 90 days. The bank tells the other half of the story: **$2.62M** of revenue was deposited between July 2025 and October 2026, of which $1.07M came from insurers by EFT, $828K as checks and $683K from patients by card and RepeatMD.\n\n### What is going well\n- **Volume is strong and steady.** Billed charges have stayed between $730K and $920K every month since March 2026; the clinical operation is not the problem.\n- **Some payers do pay.** CA Medicare Part B collects at **51%** and Blue Cross California at **47%**. Where the contract and the paperwork line up, the money comes in.\n- **Write-offs are contained.** $503K, or 5.1% of billed, has been formally given up so far.\n\n### What is worrying\n- **Collections are falling behind billing.** Only 17 cents of every billed dollar has arrived. The last two months show it clearly: $735K billed in September and $666K in October against $91K and $31K collected.\n- **The receivable is aging fast.** $4.74M (72%) is older than 90 days and $2.98M (45%) is older than 180 days. Insurance balances past 180 days are usually collected at a small fraction or lost to timely-filing limits.\n- **It is concentrated in one payer.** Blue Shield of California: $4.08M billed, **9.5%** collected, **$3.25M** open. That single payer is half of everything outstanding.\n- **The United family has effectively never paid.** United Health Care Of All States, United Healthcare and UMR together: $1.05M billed, $12K collected. For \"United Healthcare\" there is not a single payment or adjustment posted, which means those claims were never adjudicated.\n- **It is concentrated in one service.** Mito Boost: $4.87M billed, **$3.38M** outstanding. High-cost IV therapies billed to insurance are the core of the problem.\n- **It is concentrated in a few accounts.** Per the eCW aging report, 30 patient accounts with balances over $50,000 hold **59%** of the receivable.\n\n### Where the money is stuck\n- **Payers:** Blue Shield ($3.25M), Cigna ($667K), Blue Cross California ($652K), United Health Care Of All States ($490K), Anthem ($462K), United Healthcare ($284K), UMR ($242K).\n- **Services:** Mito Boost ($3.38M), Foundational Flow 25 ($740K), IV Vitamin C 75g ($203K), Foundational Flow 5 ($170K), Mini Mito Boost ($164K).\n- **Age:** $2.98M over 180 days, $1.21M at 121\u2013180 days, $557K at 91\u2013120 days.\n- **Status codes:** $2.08M of open balance sits under code INA, $1.12M under EPD and $846K under 72CL. These codes must be decoded with billing before anyone can say whether the claims are denied, pending or never adjudicated.\n- **Unbilled visits:** 4,182 visits in the export carry $0 in charges. Either the charge was never entered or the report does not show it; both are worth checking.\n\n### Five actions, ranked by dollar impact\n1. **Open a Blue Shield file this week.** Pull denial and remittance detail for Mito Boost claims and find out whether they are denied for medical necessity, missing authorization, or simply unadjudicated. This is the single largest lever: $3.25M.\n2. **Call United with three claim numbers.** $1.05M billed and nothing adjudicated. In ten minutes you will know whether the claims are on file, rejected at the clearinghouse, or routed to the wrong payer ID.\n3. **Work the 30 accounts over $50,000 first.** They are $3.3M of the official $5.56M aging. Assign each an owner and a next action (the collections worklist has them ranked).\n4. **Triage everything older than 180 days.** Appeal what is still within the payer's window; write off or provision the rest so the receivable number becomes real.\n5. **Change the front end for IV therapies.** Verify benefits and obtain prior authorization before the infusion, and move payers with a track record below 10% (United, UMR, AARP, ILWU) to self-pay or package pricing.\n\n### What the bank statements add\n- **Only two insurers pay electronically.** Anthem / Blue Cross CA ($754K by EFT) and Medicare ($319K). For both, eCW postings match the bank within a few percent, so posting is working for them.\n- **Blue Shield, Cigna, United and the rest pay by check.** eCW shows $555K posted from check-paying insurers; the bank has $828K in check deposits whose payer the statement does not show. Billing needs to tell us which checks were Blue Shield and whether every one is posted.\n- **Patients pay far more than the claims show.** $683K arrived by card and RepeatMD against $47K of patient payments on claims. Memberships, packages and cash-pay services never become claims, so the claim reports understate the practice's real revenue by about a third.\n- **Cash is flat while billing grows.** Revenue deposits have run $150K\u2013$260K a month since December 2025 (July 2026 was the exception at $386K), while billed charges climbed to $730K\u2013$920K a month.\n\n### Caveats about the data\n- \"Billed\" is the full fee schedule. A large share was never collectible, so the realistic shortfall is smaller than $6.6M but cannot be sized until the denial detail is in.\n- The bank figures are deposits by the date they arrived; the eCW figures are by date of service with payments to date. They are not expected to match month by month.\n- The claim-level figures are aged by date of service; the eCW aging report (run October 21, $5.56M) is aged by claim date. Use the aging report as the official A/R number.\n- This is billing data only. It does not include direct-pay income outside eCW, costs, or program memberships, so it is not a profit statement.\n- The meaning of the eCW claim status codes has not been confirmed with the billing team.";

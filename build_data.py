@@ -31,26 +31,47 @@ def visit_label(s):
     return s.split(" : ", 1)[1] if " : " in s else s
 
 
-def build_aging(path):
-    """Aggregate the eCW 31.01 Aging Summary (patient x visit type x visit status rows)."""
+def status_label(s):
+    """'CHK : Check Out' -> 'Check Out'. Codes whose label is only the channel keep the code: 'Voice (CANCSMS)'."""
+    s = clean(s)
+    if " : " not in s: return s
+    code, lbl = s.split(" : ", 1)
+    return f"{lbl} ({code})" if lbl in ("Voice", "SMS") else lbl
+
+
+def sheet(path):
+    """Rows of the first sheet, the index of the header row (first cell 'Facility') and the cleaned header."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb.worksheets[0]
-    rows = list(ws.iter_rows(values_only=True))
-    header_idx = next(i for i, r in enumerate(rows) if r[0] == "Facility")
-    header = rows[header_idx]
-    buckets = [clean(x) for x in header[6:13]]
-    params = " ".join(str(x) for x in rows[1] if x)
+    rows = list(wb.worksheets[0].iter_rows(values_only=True))
+    hi = next(i for i, r in enumerate(rows) if r and r[0] == "Facility")
+    return rows, hi, [clean(x) if x is not None else "" for x in rows[hi]]
+
+
+AGING_BUCKETS = ["0 - 30 Days", "31 - 60 Days", "61 - 90 Days", "91 - 120 Days", "121 - 150 Days", "151 - 180 Days", "> 180 Days"]
+AGING_OVER180 = ["181 - 210 Days", "211 - 240 Days", "241 - 270 Days", "271 - 300 Days", "301 - 330 Days", "331 - 360 Days", "> 360 Days"]
+
+
+def build_aging(path, as_of=None):
+    """Aggregate the eCW 31.01 Aging Summary. Two layouts are exported: patient x visit type x visit status
+    (with title rows and a run date in the footer) and patient x payer x visit status (header in the first row)."""
+    rows, header_idx, H = sheet(path)
+    c_pat, c_amt, c_bal = H.index("Patient Name"), H.index("Claim Amount"), H.index("Balance")
+    c_b = [H.index(x) for x in AGING_BUCKETS]
+    group = {H[i]: i for i in range(c_pat + 1, c_amt)}  # 'Visit Type' / 'Payer' / 'Visit Status'
+    params = " ".join(str(x) for x in rows[1] if x) if header_idx > 1 else ""
     run_date = None
     for r in rows[::-1]:
         if isinstance(r[0], datetime.datetime):
             run_date = r[0].date(); break
-    ff = [None] * 4
+    if run_date is None:  # this layout carries no run date
+        run_date = datetime.date.fromisoformat(as_of) if as_of else datetime.date.today()
+    ff = [None] * c_amt
     recs = []
     for r in rows[header_idx + 1:]:
-        if r[4] is None or isinstance(r[0], str) and r[0].startswith(("Overall", "Summary", "/content")):
+        if r[c_amt] is None or isinstance(r[0], str) and r[0].startswith(("Overall", "Summary", "/content")):
             continue
         r = list(r)
-        for i in range(4):
+        for i in range(c_amt):
             if r[i] is None: r[i] = ff[i]
             else: ff[i] = r[i]
         recs.append(r)
@@ -58,16 +79,14 @@ def build_aging(path):
         d = collections.defaultdict(lambda: [0.0] * 10)  # claimAmount, claims, b0..b6, balance
         for r in recs:
             c = d[keyfn(r)]
-            c[0] += r[4] or 0; c[1] += r[5] or 0
-            for i in range(7): c[2 + i] += r[6 + i] or 0
-            c[9] += r[13] or 0
+            c[0] += r[c_amt] or 0; c[1] += r[c_amt + 1] or 0
+            for i in range(7): c[2 + i] += r[c_b[i]] or 0
+            c[9] += r[c_bal] or 0
         return {k: [round(x, 2) for x in v] for k, v in d.items()}
     total = agg(lambda r: "all")["all"]
-    by_visit = agg(lambda r: visit_label(r[2]))
-    by_status = agg(lambda r: clean(r[3]))
     # Patient concentration, without identities: balance per patient account -> bands + top shares.
     per_patient = collections.defaultdict(float)
-    for r in recs: per_patient[r[1]] += r[13] or 0
+    for r in recs: per_patient[r[c_pat]] += r[c_bal] or 0
     bal = sorted((v for v in per_patient.values()), reverse=True)
     pos = [v for v in bal if v > 0.5]
     neg = [v for v in bal if v < -0.5]
@@ -80,13 +99,63 @@ def build_aging(path):
     pos_all = [v for v in bal if v > 0.5]
     tot_pos = sum(pos_all)
     top = lambda n: round(sum(pos_all[:n]) / tot_pos, 4) if tot_pos else 0
-    return {
-        "source": rows[0][0], "params": params, "asOf": run_date.isoformat() if run_date else None,
-        "buckets": buckets, "measures": ["claimAmount", "claims"] + [f"b{i}" for i in range(7)] + ["balance"],
-        "total": total, "byVisit": by_visit, "byStatus": by_status,
+    out = {
+        "source": rows[0][0] if header_idx > 0 else "31.01 - Aging Summary Analysis Report", "params": params, "asOf": run_date.isoformat(),
+        "buckets": AGING_BUCKETS, "measures": ["claimAmount", "claims"] + [f"b{i}" for i in range(7)] + ["balance"],
+        "total": total,
         "patients": {"withBalance": len(pos_all), "withCredit": len(neg), "creditTotal": round(sum(neg), 2),
                       "top10Share": top(10), "top25Share": top(25), "top50Share": top(50), "bands": band_rows},
     }
+    if "Visit Type" in group: out["byVisit"] = agg(lambda r: visit_label(r[group["Visit Type"]]))
+    if "Payer" in group: out["byPayer"] = agg(lambda r: clean(r[group["Payer"]]))
+    if "Visit Status" in group: out["byStatus"] = agg(lambda r: status_label(r[group["Visit Status"]]))
+    col_sum = lambda name: round(sum(r[H.index(name)] or 0 for r in recs), 2)
+    if "Claims Not Submitted" in H:  # an "of which" figure: already inside the age buckets
+        out["notSubmitted"] = col_sum("Claims Not Submitted")
+        if "Claims Not Submitted Count" in H:  # report totals sit on the last data row
+            out["notSubmittedClaims"] = int(recs[-1][H.index("Claims Not Submitted Count")] or 0)
+    if all(x in H for x in AGING_OVER180):
+        out["over180"] = {"buckets": AGING_OVER180, "values": [col_sum(x) for x in AGING_OVER180]}
+    return out
+
+
+def build_visits(path, as_of=None):
+    """Aggregate the eCW 13.07 Visit Counts (one row per encounter) by visit status and by visit type."""
+    rows, hi, H = sheet(path)
+    c = {k: H.index(n) for k, n in dict(pat="Patient Name", st="Visit Status", vt="Visit Type", n="Visit Count", locked="Locked Visits",
+                                         unlocked="Unlocked Visits", done="Marked Done Visits").items()}
+    c["rec"] = next(i for i, x in enumerate(H) if x.startswith("Recurring Visits"))
+    recs = [r for r in rows[hi + 1:] if r[c["st"]] and r[c["vt"]] and r[c["n"]]]
+    def kind(st):
+        code = clean(st).split(" : ")[0]
+        return "cancelled" if code.startswith("CANC") else "noShow" if code == "N/S" else "rescheduled" if code == "R/S" else "kept"
+    M = ["visits", "locked", "unlocked", "markedDone", "followUp", "cancelled", "noShow", "rescheduled"]
+    def agg(keyfn):
+        d = collections.defaultdict(lambda: [0] * len(M))
+        for r in recs:
+            v = d[keyfn(r)]; n = int(r[c["n"]]); k = kind(r[c["st"]])
+            v[0] += n; v[1] += int(r[c["locked"]] or 0); v[2] += int(r[c["unlocked"]] or 0); v[3] += int(r[c["done"]] or 0); v[4] += int(r[c["rec"]] or 0)
+            if k != "kept": v[M.index(k)] += n
+        return dict(d)
+    by_status = agg(lambda r: status_label(r[c["st"]]))
+    return {"source": "13.07 - Visit Counts", "asOf": as_of or datetime.date.today().isoformat(), "measures": M,
+            "total": agg(lambda r: "all")["all"], "patients": len({r[c["pat"]] for r in recs}),
+            "byStatus": by_status, "statusKind": {status_label(r[c["st"]]): kind(r[c["st"]]) for r in recs},
+            "byType": agg(lambda r: visit_label(r[c["vt"]]))}
+
+
+def build_denials(path, as_of=None):
+    """Aggregate the eCW 36.22 Claim Level Denials (patient x payer x visit status) by payer and by visit status."""
+    rows, hi, H = sheet(path)
+    c_pat, c_pay, c_st, c_amt, c_n = (H.index(x) for x in ("Patient Name", "Payer Name", "Visit Status", "Denial Amount", "Denial Count"))
+    recs = [r for r in rows[hi + 1:] if r[c_pay] and r[c_n] is not None]
+    def agg(keyfn):
+        d = collections.defaultdict(lambda: [0.0, 0, set()])
+        for r in recs:
+            v = d[keyfn(r)]; v[0] += r[c_amt] or 0; v[1] += int(r[c_n] or 0); v[2].add(r[c_pat])
+        return {k: [round(v[0], 2), v[1], len(v[2])] for k, v in d.items()}
+    return {"source": "36.22 - Claim Level Denials", "asOf": as_of or datetime.date.today().isoformat(), "measures": ["amount", "denials", "patients"],
+            "total": agg(lambda r: "all")["all"], "byPayer": agg(lambda r: clean(r[c_pay])), "byStatus": agg(lambda r: status_label(r[c_st]))}
 
 
 FAMILY = {"Anthem Blue Cross": "Anthem Blue Cross / Blue Cross CA", "Blue Cross California": "Anthem Blue Cross / Blue Cross CA",
@@ -107,12 +176,34 @@ def ecw_by_family(claims):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("xlsx")
+    ap.add_argument("xlsx", nargs="?", help="eCW 361.05 claim-level export; leave it out to keep the claim figures already in --out and only refresh the reports below")
     ap.add_argument("--as-of", default=None)
     ap.add_argument("--out", default="data.js")
     ap.add_argument("--aging", default=None, help="optional eCW 31.01 Aging Summary Analysis export")
+    ap.add_argument("--visits", default=None, help="optional eCW 13.07 Visit Counts export")
+    ap.add_argument("--denials", default=None, help="optional eCW 36.22 Claim Level Denials export")
+    ap.add_argument("--reports-as-of", default=None, help="run date (YYYY-MM-DD) of the --aging/--visits/--denials exports when the file carries none; default today")
     ap.add_argument("--bank", default=None, help="optional bank.json produced by scripts/build_bank.py")
     a = ap.parse_args()
+
+    def extras(out):
+        if a.aging: out["aging"] = build_aging(a.aging, a.reports_as_of)
+        if a.visits: out["visits"] = build_visits(a.visits, a.reports_as_of)
+        if a.denials: out["denials"] = build_denials(a.denials, a.reports_as_of)
+
+    def write(out):
+        with open(a.out, "w") as f:
+            f.write("// Generated by scripts/build_data.py - do not edit by hand.\n")
+            f.write("window.BILLING_DATA = ")
+            json.dump(out, f, separators=(",", ":"))
+            f.write(";\n")
+
+    if not a.xlsx:  # no new claim export: refresh only the supplementary reports
+        txt = open(a.out).read(); i = txt.index("window.BILLING_DATA = ") + 22
+        out = json.loads(txt[i:txt.rindex(";")])
+        extras(out); write(out)
+        print(f"updated {a.out}: " + ", ".join(k for k in ("aging", "visits", "denials") if getattr(a, k)) + " (claim figures unchanged)")
+        return
 
     wb = openpyxl.load_workbook(a.xlsx, read_only=True, data_only=True)
     ws = wb.worksheets[0]
@@ -214,17 +305,12 @@ def main():
         "keys": ["month", "week", "payer", "provider", "visit", "status", "resource", "aging", "vstatus"],
         "cells": [list(k) + [round(x, 2) for x in v] for k, v in sorted(cells.items())],
     }
-    if a.aging:
-        out["aging"] = build_aging(a.aging)
+    extras(out)
     if a.bank:
         out["bank"] = json.load(open(a.bank))
         out["bank"]["ecwByFamily"] = ecw_by_family(claims)
 
-    with open(a.out, "w") as f:
-        f.write("// Generated by scripts/build_data.py - do not edit by hand.\n")
-        f.write("window.BILLING_DATA = ")
-        json.dump(out, f, separators=(",", ":"))
-        f.write(";\n")
+    write(out)
     print(f"wrote {a.out}: {len(claims)} claims -> {len(cells)} cells, as of {as_of}")
 
 
