@@ -305,9 +305,17 @@ def main():
         "keys": ["month", "week", "payer", "provider", "visit", "status", "resource", "aging", "vstatus"],
         "cells": [list(k) + [round(x, 2) for x in v] for k, v in sorted(cells.items())],
     }
+    # Sections fed by other reports are carried over from the existing file unless a new export is given.
+    try:
+        txt = open(a.out).read(); old = json.loads(txt[txt.index("window.BILLING_DATA = ") + 22:txt.rindex(";")])
+    except (OSError, ValueError):
+        old = {}
+    for k in ("aging", "visits", "denials", "bank"):
+        if k in old: out[k] = old[k]
     extras(out)
     if a.bank:
         out["bank"] = json.load(open(a.bank))
+    if "bank" in out:
         out["bank"]["ecwByFamily"] = ecw_by_family(claims)
 
     write(out)
