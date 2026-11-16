@@ -56,7 +56,7 @@ def main():
     n = lambda rs: sum(int(c[M['claims']]) for c in rs); billed = lambda rs: sum(c[M['billed']] for c in rs)
     stale = []
     if data_end < wk: stale.append(f'the eCW claim export ends with the week of {fmt_week(data_end)} (report run {as_of}), so sections 1, 2, 4 and 5 have nothing for this week; please export report 361.05 again')
-    if bank_last < sunday.isoformat(): stale.append(f'the bank statement data ends {bank_last}, so section 3 is partial for this week')
+    if bank_last < sunday.isoformat(): stale.append(f'the F&M Bank statement loaded ends {bank_last}, so section 3 has ' + ('no bank figures' if wk > bank_last else 'partial bank figures') + ' for this week; the scanned checks are current')
     out = []
     out.append('To: ' + ', '.join(RECIPIENTS)); out.append(f'Subject: Weekly billing report, week of {monday.strftime("%b %-d")} – {sunday.strftime("%b %-d")}'); out.append('')
     out.append('Hi all,'); out.append('')
@@ -69,7 +69,7 @@ def main():
     out.append(f'{n(W)} encounters' + (f', {pts} patients' if pts else '') + f', {usd(billed(W))} billed on {n(charged)} of them.')
     byp = collections.defaultdict(lambda: [0, 0.0])
     for c in charged: byp[payer(c)][0] += int(c[M['claims']]); byp[payer(c)][1] += c[M['billed']]
-    out += ['', 'By insurance company:']; out.append(col([(k, f'{v[0]} claims', usd(v[1])) for k, v in sorted(byp.items(), key=lambda x: -x[1][1])], [34, 12, 12]))
+    out += ['', 'By insurance company:']; out.append(col([(k, (f'{v[0]} claim' + ('s' if v[0] != 1 else '')), usd(v[1])) for k, v in sorted(byp.items(), key=lambda x: -x[1][1])], [34, 12, 12]))
     byv = collections.defaultdict(lambda: [0, 0.0])
     for c in charged: byv[visit(c)][0] += int(c[M['claims']]); byv[visit(c)][1] += c[M['billed']]
     top = sorted(byv.items(), key=lambda x: -x[1][1])
@@ -92,23 +92,29 @@ def main():
     bc = bank.get('cells', [])
     def bsum(w, cats): return sum(c['amount'] for c in bc if c['week'] == w and c['cat'] in cats)
     rows = [('Week of', 'Total', 'Insurance EFT', 'Checks', 'Patient cards', 'RepeatMD')]
+    nobank = lambda w: w > bank_last          # week starts after the last statement day
+    partial = lambda w: (not nobank(w)) and (datetime.date.fromisoformat(w) + datetime.timedelta(days=6)).isoformat() > bank_last
     for w in weeks5:
+        if nobank(w): rows.append((fmt_week(w)[:6].strip(), 'no data', 'no data', 'no data', 'no data', 'no data')); continue
         t = bsum(w, ['insurance', 'checks', 'patient_card', 'patient_other', 'other_income'])
-        rows.append((fmt_week(w)[:6], usd(t), usd(bsum(w, ['insurance'])), usd(bsum(w, ['checks'])), usd(bsum(w, ['patient_card'])), usd(bsum(w, ['patient_other']))))
+        rows.append((fmt_week(w)[:6].strip() + ('*' if partial(w) else ''), usd(t), usd(bsum(w, ['insurance'])), usd(bsum(w, ['checks'])), usd(bsum(w, ['patient_card'])), usd(bsum(w, ['patient_other']))))
     out.append(col(rows, [11, 11, 16, 11, 16, 11]))
+    if any(nobank(w) or partial(w) for w in weeks5): out.append(f'"no data": the F&M Bank statement loaded in the dashboard ends {bank_last}, so EFTs, check deposits, cards and RepeatMD for later weeks are not available yet (* = partial week). They will fill in when the next statement is uploaded.')
     efts = collections.Counter()
     for c in bc:
         if c['week'] == wk and c['cat'] == 'insurance': efts[c['source']] += c['amount']
     if CK:
         ckw = [c for c in CK['cells'] if c['week'] == wk and c['kind'] == 'scanned']
-        byf = collections.Counter(); notin = collections.Counter(); notin_n = collections.Counter()
+        byf = collections.Counter(); notin = collections.Counter(); notin_n = collections.Counter(); uncl = collections.Counter()
         for c in ckw:
             byf[c['family']] += c['amount']
             if c['verdict'] == 'not in eCW': notin[c['family']] += c['amount']; notin_n[c['family']] += c['n']
-        out += ['', 'Insurance money that arrived last week, by payer (EFTs by sender; checks by the SharePoint scan):']
+            if c['verdict'] == 'not cashed': uncl[c['family']] += c['amount']
+        out += ['', 'Insurance money that arrived last week, by payer (' + ('checks scanned into SharePoint; EFTs from Anthem and Medicare are not included because the bank statement for this week is not loaded' if nobank(wk) else 'EFTs by sender; checks by the SharePoint scan') + '):']
         allp = collections.Counter(efts); allp.update(byf)
-        out.append(col([(k, usd(v), ('EFT' if k in efts else (lambda q: f'{q} check' + ('s' if q != 1 else ''))(sum(c["n"] for c in ckw if c["family"] == k))) + (f', {usd(notin[k])} not yet in eCW' if notin[k] else '')) for k, v in allp.most_common()] + [('Total', usd(sum(allp.values())), '')], [34, 12, 40]))
-        out.append(f'Scanned checks total {usd(sum(byf.values()))} against {usd(bsum(wk, ["checks"]))} of check deposits on the statement' + (' (bank data not complete for this week).' if bank_last < sunday.isoformat() else '; the gap is patient checks and checks deposited without a scan.'))
+        out.append(col([(k, usd(v), ('EFT' if k in efts else (lambda q: f'{q} check' + ('s' if q != 1 else ''))(sum(c["n"] for c in ckw if c["family"] == k))) + (f', {usd(notin[k])} not yet in eCW' if notin[k] else '') + (f', {usd(uncl[k])} not cleared by the bank yet' if uncl[k] else '')) for k, v in allp.most_common()] + [('Total', usd(sum(allp.values())), '')], [34, 12, 62]))
+        if nobank(wk): out.append(f'Scanned checks total {usd(sum(byf.values()))}. They cannot be compared with the bank yet: the statement for this week is not loaded.')
+        else: out.append(f'Scanned checks total {usd(sum(byf.values()))} against {usd(bsum(wk, ["checks"]))} of check deposits on the statement' + (' (bank data not complete for this week).' if bank_last < sunday.isoformat() else '; the gap is patient checks and checks deposited without a scan.'))
     out.append('Patient cards (Global Payments) carry copays and cash-pay treatments together; RepeatMD carries packages and memberships. For reference, eCW shows ' + usd(sum(c[M['payments']] for c in W)) + ' of payments posted on last week\'s own encounters, which is expected: insurers have not adjudicated them yet.')
     # 3b leaks
     if CK:
@@ -119,6 +125,7 @@ def main():
             if c['verdict'] == 'unposted': unp[c['family']] += c['amount']
         out += ['', 'CHECKS RECEIVED BUT NOT POSTED IN eCW (all dates since scanning began ' + CK['months'][0] + ')', '']
         out.append(f'{sum(tot_ni_n.values())} checks worth {usd(sum(tot_ni.values()))} are on file (scanned or logged in the Insurance Check Tracker) and eCW has no payment under their number; another {usd(sum(unp.values()))} is entered but not applied to claims. Until they are posted, eCW understates collections and keeps chasing balances that were already paid.')
+        posted_wk = sum(c['amount'] for c in allck if c['verdict'] == 'posted' and c['week'] == wk)
         out.append(col([(k, f'{tot_ni_n[k]} checks', usd(v)) for k, v in tot_ni.most_common(6)], [34, 12, 12]) + '\n  ("Unknown payer": the payer name could not be read off the scan.)')
     # 4 unlocked
     out += ['', '4. UNLOCKED NOTES, BY PERSON/TEAM', '']
@@ -126,7 +133,7 @@ def main():
     if openw:
         by = collections.defaultdict(collections.Counter)
         for c in openw: by[res(c)][vs(c)] += int(c[M['claims']])
-        out.append(f'From last week, {n(openw)} encounters are still open: ' + '; '.join(f'{r} {sum(v.values())} (' + ', '.join(f'{s} {k}' for k, s in v.most_common()) + ')' for r, v in sorted(by.items(), key=lambda x: -sum(x[1].values()))) + '.')
+        out.append(f'From last week, {n(openw)} encounter' + ('s are' if n(openw) != 1 else ' is') + ' still open: ' + '; '.join(f'{r} {sum(v.values())} (' + ', '.join(f'{s} {k}' for k, s in v.most_common()) + ')' for r, v in sorted(by.items(), key=lambda x: -sum(x[1].values()))) + '.')
     else: out.append('Every encounter from last week is locked or checked out.')
     oldopen = [c for c in live if vs(c) not in ('IV Locked', 'Check Out') and c[K['week']] < wk]
     oldopen_billed = [c for c in oldopen if c[M['billed']] > 0]

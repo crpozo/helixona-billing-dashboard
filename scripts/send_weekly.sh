@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 DRY=0; WEEK=""
 for a in "$@"; do case "$a" in --dry-run) DRY=1;; --week) ;; *) [[ "$a" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && WEEK="$a";; esac; done
 CHECKS_URL="${HELIXONA_CHECKS_URL:-http://54.189.175.233:5050/api/checks}"
-python3 -c "import boto3" 2>/dev/null || pip install -q boto3
+python3 -c "import boto3" 2>/dev/null || python3 -m pip install -q boto3
 TMP="$(mktemp -d)"
 if curl -sS -m 90 ${HTTPS_PROXY:+-p -x "$HTTPS_PROXY"} "$CHECKS_URL" -o "$TMP/checks.json"; then
   python3 scripts/build_checks.py "$TMP/checks.json" --out checks.js && echo "checks.js refreshed"
