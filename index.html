@@ -319,6 +319,21 @@ button.ghost.gold:hover{background:#dcc48f}
   <p class="hint" style="margin:0 0 10px">Click any figure to see how it is built and why it differs from the others.</p>
   <section class="grid kpis" id="kpis" aria-label="Key figures"></section>
 
+  <section class="card section" id="owSection" hidden>
+    <div class="card-head">
+      <div><div class="eyebrow" style="color:var(--gold-2)">Work waiting</div><h2>Unlocked claims and unbilled claims</h2><p class="hint" id="owHint"></p></div>
+    </div>
+    <h3 style="margin:14px 0 4px;font-size:16px;font-weight:600">Unlocked claims, by team</h3>
+    <p class="hint" style="margin:2px 0 10px">The visit note is not locked yet (Check-In, Pending, IV in session, IV Complete…). Cancelled and no-show visits are left out. Click a team to see every line.</p>
+    <div id="owUnlocked"></div>
+    <p style="margin:10px 0 0"><button class="btn-sm" id="owUnlockedAll" type="button">Every unlocked line</button></p>
+    <hr class="sep">
+    <h3 style="margin:0 0 4px;font-size:16px;font-weight:600">Unbilled claims, by payer</h3>
+    <p class="hint" style="margin:2px 0 10px">Insurance claims with no charge on any line. Cash-pay patients are not counted here.</p>
+    <div id="owUnbilled"></div>
+    <p style="margin:10px 0 0"><button class="btn-sm" id="owUnbilledAll" type="button">Every unbilled line</button> <button class="btn-sm" id="owCashAll" type="button">Cash-pay visits with no charge</button></p>
+  </section>
+
   <section class="card section" id="bankSection" hidden>
     <div class="card-head">
       <div><div class="eyebrow" style="color:var(--gold-2)">Cash received</div><h2>Deposits in the bank account</h2><p class="hint" id="bankHint"></p></div>
@@ -776,6 +791,8 @@ button.ghost.gold:hover{background:#dcc48f}
     'From insurer':{what:'Payments received from the insurance company.', ex:''},
     'From patient':{what:'Payments received from the patient: copays, coinsurance, self-pay.', ex:''},
     'Of billed':{what:'Payments \u00f7 Billed, before removing the contract discount. Always lower than the collection rate.', ex:''},
+    'Unlocked claims':{what:'Claims whose visit note is not locked in eCW (visit status other than IV Locked or Check Out). Cancelled and no-show visits are left out. Each claim is counted once.', ex:'Locking the note is what lets billing finish the claim.'},
+    'Unbilled claims':{what:'Claims under an insurance payer where no line carries a billed charge. Cash-pay patients are not counted.', ex:'A visit that never got a claim in eCW does not appear in the claim report and is not in this figure.'},
     'Not locked':{what:'Visits whose note is not yet locked or checked out, so they cannot be billed yet.', ex:''},
     'No charge yet':{what:'Visits that exist in eCW but have $0 billed in this export: the charge has not been entered, or the report does not carry it.', ex:''},
     'Visits':{what:'Number of visits (appointments) in eCW, billed or not.', ex:''},
@@ -828,7 +845,9 @@ button.ghost.gold:hover{background:#dcc48f}
     const patStatus = D.dims.status.indexOf('PAT');
     const split = rows.reduce((a,c)=>{ const v=c[M.balanceDue]; if(isPatientPayer(c[K.payer])||c[K.status]===patStatus) a.pat+=v; else a.ins+=v; return a; },{ins:0,pat:0});
     const bank = D.bank ? (()=>{ const bc=bankCells(); const rs=bc.cells; const g=cat=>rs.filter(c=>c.cat===cat).reduce((a,c)=>a+c.amount,0); const ins=g('insurance'), chk=g('checks'), pat=g('patient_card')+g('patient_other'), oth=g('other_income'); const r=activeRange(); const lastBank=D.bank.lastDate||(D.bank.months[D.bank.months.length-1]+'-31'); const beyond = r && iso(r[1])>lastBank; return {total:ins+chk+pat+oth,ins,chk,pat,oth,beyond,lastBank,attributed:bc.attributed}; })() : null;
+    const ow = renderOpenWork();
     const kp = [
+      ...(ow?[{l:'Unlocked claims', v:fmt.int(ow.un), d:`${fmt.usd(ow.unBilled)} already billed · ${fmt.int(ow.unNc)} with no charge`, hero:true, go:()=>openWorkDetail('unlocked')},{l:'Unbilled claims', v:fmt.int(ow.ub), d:`insurance, no charge entered · ${fmt.int(ow.ubLocked)} locked and ready`, hero:true, go:()=>openWorkDetail('unbilled')}]:[]),
       ...(bank?[{l:'Cash received', v:fmt.usd(bank.total), d:(bank.attributed?`Attributed to the selected payers · EFT ${fmt.usdc(bank.ins)} · Scanned checks ${fmt.usdc(bank.chk)}`+(bank.pat?` · Patients ${fmt.usdc(bank.pat)}`:''):`Insurance EFT ${fmt.usdc(bank.ins)} · Checks ${fmt.usdc(bank.chk)} · Patients ${fmt.usdc(bank.pat)}`)+(bank.beyond?` · bank data through ${fmt.week(bank.lastBank)}`:''), hero:true}]:[]),
       {l:'Billed', v:fmt.usd(T.billed), d:`${fmt.int(T.claims)} claims`, c:S.s1},
       {l:'Collected on these claims', v:fmt.usd(T.payments), d:`Insurance ${fmt.usd(T.payerPayments)} · Patient ${fmt.usd(T.patientPayments)}`, c:S.s2},
@@ -838,7 +857,7 @@ button.ghost.gold:hover{background:#dcc48f}
       {l:'Balance still due', v:fmt.usd(T.balanceDue), d:`Insurance ${fmt.usd(split.ins)} · Patient ${fmt.usd(split.pat)}`},
       {l:'Patients', v:patients==null?'—':fmt.int(patients), d:patients==null?'shown for all dates (whole practice or one payer)':'distinct patient accounts'},
     ];
-    LAST={rows,T,bank,split}; el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile clickable'+(k.hero?' hero':''),role:'button',tabindex:'0',title:'Click to see how this figure is built'}); t.addEventListener('click',()=>openMetric(k.l)); t.addEventListener('keydown',e=>{ if(e.key==='Enter') openMetric(k.l); }); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
+    LAST={rows,T,bank,split}; el('kpis').innerHTML=''; kp.forEach(k=>{ const t=h('div',{class:'tile clickable'+(k.hero?' hero':''),role:'button',tabindex:'0',title:'Click to see how this figure is built'}); t.addEventListener('click',()=>k.go?k.go():openMetric(k.l)); t.addEventListener('keydown',e=>{ if(e.key==='Enter') (k.go?k.go():openMetric(k.l)); }); const l=h('div',{class:'l'}); if(k.c) l.append(h('i',{class:'swatch',style:'background:'+k.c})); l.append(document.createTextNode(k.l)); helpTip(l, k.l); t.append(l,h('div',{class:'v',text:k.v}),h('div',{class:'d',text:k.d})); el('kpis').append(t); });
 
     // Monthly / weekly
     const gm = group(rows,'month'); const ms = months.filter(m=>gm.has(m));
@@ -970,6 +989,52 @@ button.ghost.gold:hover{background:#dcc48f}
 
 
 
+
+  // ---------- open work: unlocked claims and unbilled claims (one line per week x team x payer x service, no patient identity) ----------
+  const OW = D.openWork || null;
+  const owK = OW ? Object.fromEntries(OW.keys.map((k,i)=>[k,i])) : {}; const owN = OW ? OW.keys.length : 0;
+  const owName = (c,d) => OW.dims[d][c[owK[d]]];
+  function owRows(){ if(!OW) return [];
+    const r=activeRange(); const wt=weekTest(r); const payer=F.payer.get(), prov=F.provider.get(), visit=F.visit.get();
+    const pIdx=n=>D.dims.payer.indexOf(PAYER_GROUPS[n]||n), prIdx=n=>D.dims.provider.indexOf(n), vIdx=n=>D.dims.visit.indexOf(n);
+    return OW.cells.filter(c=>wt(c[0]) && (!payer||payer.has(pIdx(owName(c,'payer')))) && (!prov||prov.has(prIdx(owName(c,'provider')))) && (!visit||visit.has(vIdx(owName(c,'visit'))))); }
+  const owSum=(cs,i)=>cs.reduce((a,c)=>a+c[owN+i],0);
+  const owUnlocked=cs=>cs.filter(c=>c[owK.unlocked]);
+  const owUnbilled=cs=>cs.filter(c=>c[owK.nocharge]&&!c[owK.cash]);          // insurance claim, no charge on any line
+  const owCashNoCharge=cs=>cs.filter(c=>c[owK.nocharge]&&c[owK.cash]);
+  const owStale=()=>OW&&OW.asOf<D.asOf;
+  function owLines(cs){ return cs.slice().sort((a,b)=>a[0]<b[0]?1:a[0]>b[0]?-1:b[owN]-a[owN]).map(c=>({week:fmt.weekLong(c[0]),team:owName(c,'resource'),provider:owName(c,'provider'),payer:owName(c,'payer'),visit:owName(c,'visit'),vstatus:owName(c,'vstatus'),status:owName(c,'status'),n:c[owN],billed:c[owN+1],bal:c[owN+2],same:c[owK.sameDay],locked:!c[owK.unlocked]})); }
+  const owLineCols=(kind)=>[{label:'Week of service',key:'week'},{label:'Resource / team',key:'team'},{label:'Provider',key:'provider'},{label:'Payer',key:'payer'},{label:'Service',key:'visit'},{label:'Visit status',key:'vstatus'},{label:'Claim status',key:'status'},{label:'Claims',num:1,render:r=>fmt.int(r.n)},...(kind==='unlocked'?[{label:'Billed',num:1,render:r=>r.billed?fmt.usd(r.billed):'no charge'},{label:'Balance due',num:1,render:r=>fmt.usd(r.bal)}]:[{label:'Note',render:r=>(r.locked?'Locked':'Not locked')+(r.same?' · another claim billed that day':'')}])];
+  function openWorkDetail(kind, team){
+    const all=owRows(); let cs=kind==='unlocked'?owUnlocked(all):kind==='cash'?owCashNoCharge(all):owUnbilled(all); if(team) cs=cs.filter(c=>owName(c,'resource')===team);
+    const title=kind==='unlocked'?'Unlocked claims':kind==='cash'?'Cash-pay visits with no charge':'Unbilled claims';
+    const body=openPanel('Every line behind the figure', title+(team?' · '+team:''), el('scope').textContent.replace('Showing: ','Within: ')+' · eCW export of '+OW.asOf);
+    const tiles=h('div',{class:'grid kpis',style:'margin-bottom:18px'}); const tl=(l,v,d)=>{ const t=h('div',{class:'tile'}); t.append(h('div',{class:'l',text:l}),h('div',{class:'v',text:v}),h('div',{class:'d',text:d})); tiles.append(t); };
+    if(kind==='unlocked'){ tl('Unlocked claims',fmt.int(owSum(cs,0)),'visit note not locked'); tl('Already billed',fmt.usd(owSum(cs,1)),fmt.int(owSum(cs.filter(c=>!c[owK.nocharge]),0))+' of them carry a charge'); tl('No charge either',fmt.int(owSum(cs.filter(c=>c[owK.nocharge]),0)),'not locked and nothing billed'); const old=cs.filter(c=>c[0]<iso(addDays(new Date(D.asOf+'T00:00:00'),-30))); tl('Older than 30 days',fmt.int(owSum(old,0)),'by date of service'); }
+    else { tl(title,fmt.int(owSum(cs,0)),'no charge on any line of the claim'); tl('Locked',fmt.int(owSum(cs.filter(c=>!c[owK.unlocked]),0)),'ready to bill today'); tl('Not locked',fmt.int(owSum(cs.filter(c=>c[owK.unlocked]),0)),'note must be locked first'); tl('Billed under another claim',fmt.int(owSum(cs.filter(c=>c[owK.sameDay]),0)),'same patient, same day'); }
+    body.append(tiles);
+    noteBox(body, kind==='unlocked' ? '<strong>What this is.</strong> Claims whose visit is still in Check-In, Pending, IV in session, IV Complete or a reminder status instead of IV Locked / Check Out. Cancelled and no-show visits are left out. Most were billed anyway, so the work is to lock the note in eCW; the ones with no charge are the ones that are holding money back.'
+      : kind==='cash' ? '<strong>What this is.</strong> Claims under the Patient payer with no charge: cash add-ons and program visits that were paid by card or RepeatMD outside eCW. They are listed for completeness and are not counted as unbilled.'
+      : '<strong>What this is.</strong> Claims under an insurance payer where no line carries a billed charge. “Another claim billed that day” means the same patient has a charged claim for the same date, so the visit was probably billed there and this one is a leftover to void or merge. The rest need a charge entered. A visit that never got a claim at all does not appear in eCW report 361.05; those can only be seen in the schedule.');
+    const bw={}; cs.forEach(c=>{ const m=c[0].slice(0,7); (bw[m]=bw[m]||{n:0,b:0}).n+=c[owN]; bw[m].b+=c[owN+1]; });
+    table(section(body,'By month of service','Most recent first.'),[{label:'Month',key:'name'},{label:'Claims',num:1,render:r=>fmt.int(r.n)},...(kind==='unlocked'?[{label:'Billed',num:1,render:r=>fmt.usd(r.b)}]:[])],Object.keys(bw).sort().reverse().map(m=>({name:fmt.monthLong(m),...bw[m]})));
+    const lines=owLines(cs); const LIM=400;
+    table(section(body,'Every line',`${fmt.int(lines.length)} lines, newest first${lines.length>LIM?' (first '+LIM+' shown; narrow the period or the filters to see the rest)':''}. Patient names and claim numbers are in the private worklist workbook, not on this page.`),owLineCols(kind),lines.slice(0,LIM));
+  }
+  function renderOpenWork(){
+    const sec=el('owSection'); if(!sec) return; if(!OW){ sec.hidden=true; return; } sec.hidden=false;
+    const all=owRows(); const un=owUnlocked(all), ub=owUnbilled(all), cash=owCashNoCharge(all);
+    el('owHint').textContent=`Claims in eCW report 361.05 that still need someone to act, by date of service. Each claim is counted once. Follows every filter.`+(owStale()?` These figures come from the export of ${OW.asOf}; the rest of the page uses the export of ${D.asOf}. They refresh with the next claim export.`:` eCW export of ${OW.asOf}.`);
+    const grp=(cs,dim)=>{ const g={}; cs.forEach(c=>{ const k=owName(c,dim); const o=g[k]=g[k]||{name:k,n:0,b:0,nc:0,old:null,st:{}}; o.n+=c[owN]; o.b+=c[owN+1]; if(c[owK.nocharge]) o.nc+=c[owN]; if(!o.old||c[0]<o.old) o.old=c[0]; const s=owName(c,'vstatus'); o.st[s]=(o.st[s]||0)+c[owN]; if(c[owK.sameDay]) o.same=(o.same||0)+c[owN]; if(!c[owK.unlocked]) o.lk=(o.lk||0)+c[owN]; }); return Object.values(g).sort((a,b)=>b.n-a.n); };
+    const u=grp(un,'resource'); const sts=[...new Set(un.map(c=>owName(c,'vstatus')))].sort((a,b)=>un.filter(c=>owName(c,'vstatus')===b).reduce((x,c)=>x+c[owN],0)-un.filter(c=>owName(c,'vstatus')===a).reduce((x,c)=>x+c[owN],0));
+    const ut={name:'Total',_class:'total',n:owSum(un,0),b:owSum(un,1),nc:owSum(un.filter(c=>c[owK.nocharge]),0),st:{},old:un.reduce((m,c)=>!m||c[0]<m?c[0]:m,null)}; un.forEach(c=>{ const s=owName(c,'vstatus'); ut.st[s]=(ut.st[s]||0)+c[owN]; });
+    table(el('owUnlocked'),[{label:'Resource / team',key:'name'},{label:'Unlocked claims',num:1,render:r=>h('strong',{text:fmt.int(r.n)})},...sts.map(s=>({label:s,num:1,render:r=>r.st[s]?fmt.int(r.st[s]):'–'})),{label:'No charge either',num:1,render:r=>r.nc?h('span',{class:'pill crit',text:fmt.int(r.nc)}):'–'},{label:'Already billed',num:1,render:r=>fmt.usd(r.b)},{label:'Oldest',num:1,render:r=>r.old?fmt.week(r.old)+' ’'+r.old.slice(2,4):'–'}],[...u,ut],{onRow:r=>openWorkDetail('unlocked',r.name),empty:'No unlocked claims in this selection.'});
+    const b=grp(ub,'payer'); const bt={name:'Total',_class:'total',n:owSum(ub,0),same:owSum(ub.filter(c=>c[owK.sameDay]),0),lk:owSum(ub.filter(c=>!c[owK.unlocked]),0),old:ub.reduce((m,c)=>!m||c[0]<m?c[0]:m,null)};
+    table(el('owUnbilled'),[{label:'Payer',key:'name'},{label:'Unbilled claims',num:1,render:r=>h('strong',{text:fmt.int(r.n)})},{label:'Locked, ready to bill',num:1,render:r=>fmt.int(r.lk||0)},{label:'Not locked',num:1,render:r=>fmt.int(r.n-(r.lk||0))},{label:'Another claim billed that day',num:1,render:r=>r.same?fmt.int(r.same):'–'},{label:'Oldest',num:1,render:r=>r.old?fmt.week(r.old)+' ’'+r.old.slice(2,4):'–'}],[...b,bt],{empty:'No unbilled insurance claims in this selection.'});
+    el('owUnbilledAll').onclick=()=>openWorkDetail('unbilled'); el('owUnlockedAll').onclick=()=>openWorkDetail('unlocked'); el('owCashAll').onclick=()=>openWorkDetail('cash');
+    el('owCashAll').textContent=`Cash-pay visits with no charge (${fmt.int(owSum(cash,0))})`;
+    return {un:owSum(un,0),unBilled:owSum(un,1),unNc:owSum(un.filter(c=>c[owK.nocharge]),0),ub:owSum(ub,0),ubLocked:owSum(ub.filter(c=>!c[owK.unlocked]),0),ubSame:owSum(ub.filter(c=>c[owK.sameDay]),0)};
+  }
 
   // ---------- treatments by modality: one column per modality, one row per month or week ----------
   const MODALITY = [  // [family, regex on the eCW visit type]. First match wins; unmatched types go to "Other".

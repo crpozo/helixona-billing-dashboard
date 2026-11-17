@@ -53,3 +53,16 @@ python3 scripts/build_checks.py checks.json --out checks.js
 Only per-payer x month x verdict totals are written: no check numbers, patient names or
 file names. Do not commit `checks.json`.
 
+## Unlocked and unbilled claims
+
+`build_data.py` counts each claim once (eCW writes one row per claim and responsible payer) and adds an
+`openWork` block to `data.js`: claims whose visit note is not locked, and claims with no charge, by week,
+team, payer and service, without patient identity. The dashboard shows them at the top.
+
+For the claim-by-claim list with patient names and claim numbers, build the private workbook. It must not
+be committed (`*.xlsx` is ignored):
+
+```bash
+python3 scripts/build_worklist.py "361.05 - Financial Analysis at Claim Level - Detail.xlsx" --out worklist.xlsx
+```
+

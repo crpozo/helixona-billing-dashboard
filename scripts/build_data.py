@@ -165,6 +165,39 @@ FAMILY = {"Anthem Blue Cross": "Anthem Blue Cross / Blue Cross CA", "Blue Cross 
           "Cigna Healthcare": "Cigna", "AETNA": "Aetna", "Patient": "Patient", "Self-Pay": "Patient"}
 
 
+def build_open_work(by_claim, as_of):
+    """Claims that still need work, one line per week x team x provider x payer x service x status (no patient identity).
+    unlocked: the visit note is not locked (visit status other than IV Locked / Check Out; cancelled and no-show left out).
+    nocharge: no row of the claim carries a billed charge. cash: the claim's payer is the patient (cash-pay / program visit).
+    sameDay: the same patient has another claim with a charge on the same day (the visit was billed under that one)."""
+    CASH = {"Patient", "Self-Pay"}; LOCKED = {"IV Locked", "Check Out"}; GONE = {"Cancelled", "No-Show", "Rescheduled"}
+    charged_days = set()
+    for rs in by_claim.values():
+        if any((r[COLS["billed"]] or 0) > 0 for r in rs): charged_days.add((rs[0][COLS["acct"]], rs[0][COLS["service"]].date()))
+    dims = {k: [] for k in ("resource", "provider", "payer", "visit", "vstatus", "status")}
+    def ix(d, v):
+        if v not in dims[d]: dims[d].append(v)
+        return dims[d].index(v)
+    cells = collections.defaultdict(lambda: [0, 0.0, 0.0])
+    for rs in by_claim.values():
+        p = max(rs, key=lambda x: x[COLS["billed"]] or 0)
+        vst = visit_label(p[COLS["vstatus"]])
+        if vst in GONE or vst.startswith("Voice (CANC") or vst.startswith("Cancel"): continue
+        billed = sum(r[COLS["billed"]] or 0 for r in rs)
+        unlocked = vst not in LOCKED; nocharge = billed <= 0
+        if not (unlocked or nocharge): continue
+        sd = p[COLS["service"]].date(); week = (sd - datetime.timedelta(days=sd.weekday())).isoformat()
+        payer = clean(p[COLS["payer"]])
+        key = (week, ix("resource", clean(p[COLS["resource"]])), ix("provider", clean(p[COLS["provider"]])), ix("payer", payer),
+               ix("visit", visit_label(p[COLS["visit"]])), ix("vstatus", vst), ix("status", clean(p[COLS["status"]])),
+               int(unlocked), int(nocharge), int(payer in CASH), int((p[COLS["acct"]], sd) in charged_days and nocharge))
+        c = cells[key]; c[0] += 1; c[1] += billed; c[2] += sum(r[COLS["ar"]] or 0 for r in rs)
+    return {"asOf": as_of.isoformat(), "dims": dims,
+            "keys": ["week", "resource", "provider", "payer", "visit", "vstatus", "status", "unlocked", "nocharge", "cash", "sameDay"],
+            "measures": ["claims", "billed", "balance"],
+            "cells": [list(k) + [v[0], round(v[1], 2), round(v[2], 2)] for k, v in sorted(cells.items())]}
+
+
 def ecw_by_family(claims):
     """eCW payments posted to date, grouped the way the bank statements name the payers."""
     out = collections.defaultdict(lambda: [0.0, 0.0, 0.0])
@@ -255,6 +288,11 @@ def main():
             d[value] = len(d)
         return d[value]
 
+    # eCW writes one row per claim and responsible payer (the insurer row carries the charge, the Patient row the copay...).
+    # A claim is counted once, on its primary row: the row with the largest billed charge, else its first row.
+    by_claim = collections.defaultdict(list)
+    for r in claims: by_claim[r[COLS["claimno"]]].append(r)
+    primary = {id(max(rs, key=lambda x: x[COLS["billed"]] or 0)) for rs in by_claim.values()}
     cells = collections.defaultdict(lambda: [0.0] * 10)
     pts_overall, pts_payer, pts_month, pts_week = set(), collections.defaultdict(set), collections.defaultdict(set), collections.defaultdict(set)
     for r in claims:
@@ -271,7 +309,7 @@ def main():
                idx("vstatus", visit_label(r[COLS["vstatus"]])))
         c = cells[key]
         ar = r[COLS["ar"]] or 0
-        c[0] += 1
+        c[0] += 1 if id(r) in primary else 0
         c[1] += r[COLS["billed"]] or 0
         c[2] += r[COLS["payments"]] or 0
         c[3] += r[COLS["payer_pay"]] or 0
@@ -292,7 +330,7 @@ def main():
         "reportPeriod": period,
         "asOf": as_of.isoformat(),
         "generated": datetime.date.today().isoformat(),
-        "claimCount": len(claims),
+        "claimCount": len(by_claim),
         "patientCount": len(pts_overall),
         "facility": clean(claims[0][COLS["facility"]]),
         "dims": {k: list(v.keys()) for k, v in dims.items()},
@@ -312,6 +350,7 @@ def main():
         old = {}
     for k in ("aging", "visits", "denials", "bank"):
         if k in old: out[k] = old[k]
+    out["openWork"] = build_open_work(by_claim, as_of)
     extras(out)
     if a.bank:
         out["bank"] = json.load(open(a.bank))
@@ -319,7 +358,7 @@ def main():
         out["bank"]["ecwByFamily"] = ecw_by_family(claims)
 
     write(out)
-    print(f"wrote {a.out}: {len(claims)} claims -> {len(cells)} cells, as of {as_of}")
+    print(f"wrote {a.out}: {len(by_claim)} claims ({len(claims)} rows) -> {len(cells)} cells, as of {as_of}")
 
 
 if __name__ == "__main__":

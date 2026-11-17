@@ -62,6 +62,28 @@ def main():
     out.append('Hi all,'); out.append('')
     out.append(f'Below are the answers to the weekly questions for {monday.strftime("%B %-d")} – {sunday.strftime("%B %-d, %Y")}. Sources: eCW claim-level export (report 361.05) run {as_of}; F&M Bank statements through {bank_last}; insurance checks scanned into SharePoint and reconciled against eCW' + (f' on {CK["reconciledAt"][:10]}' if CK else '') + f'. Everything here is also on the dashboard ({DASHBOARD}) with the "Last week" filter; click any figure there to see how it is built.')
     if stale: out.append(''); out.append('DATA NOTE: ' + '; '.join(stale) + '.')
+    # key metrics: unlocked and unbilled claims (each claim counted once; from the open-work block of data.js)
+    OW = D.get('openWork'); ow = None
+    if OW:
+        ok = {k: i for i, k in enumerate(OW['keys'])}; on = len(OW['keys']); od = OW['dims']
+        nm = lambda c, d: od[d][c[ok[d]]]
+        oc = OW['cells']; cnt = lambda cs: sum(c[on] for c in cs)
+        un = [c for c in oc if c[ok['unlocked']]]; ub = [c for c in oc if c[ok['nocharge']] and not c[ok['cash']]]
+        ow = dict(ok=ok, on=on, nm=nm, cnt=cnt, un=un, ub=ub)
+        out += ['', 'UNLOCKED CLAIMS AND UNBILLED CLAIMS (all dates, eCW export of ' + OW['asOf'] + ')', '']
+        if OW['asOf'] < as_of: out.append(f'Note: these two figures come from the export of {OW["asOf"]}; they refresh with the next claim export.')
+        out.append(f'Unlocked claims: {cnt(un)}. The visit note is not locked in eCW (cancelled and no-show left out). {cnt([c for c in un if not c[ok["nocharge"]]])} of them were billed anyway ({usd(sum(c[on+1] for c in un))}); {cnt([c for c in un if c[ok["nocharge"]]])} have no charge either.')
+        bt = collections.Counter(); bl = collections.Counter()
+        for c in un: bt[nm(c, 'resource')] += c[on]
+        for c in un:
+            if c[0] == wk: bl[nm(c, 'resource')] += c[on]
+        out.append(col([('Team', 'Unlocked', 'From last week')] + [(k, v, bl.get(k, 0) or '-') for k, v in bt.most_common(8)] + ([('Other teams', sum(v for _, v in bt.most_common()[8:]), sum(bl.get(k, 0) for k, _ in bt.most_common()[8:]) or '-')] if len(bt) > 8 else []) + [('Total', cnt(un), sum(bl.values()) or '-')], [30, 10, 16]))
+        out.append(f'Unbilled claims: {cnt(ub)}. Insurance claims with no charge on any line (cash-pay patients not counted). {cnt([c for c in ub if not c[ok["unlocked"]]])} are locked and ready to bill, {cnt([c for c in ub if c[ok["unlocked"]]])} still need the note locked, and for {cnt([c for c in ub if c[ok["sameDay"]]])} the same patient has another claim billed that day.')
+        if ub:
+            bp = collections.Counter()
+            for c in ub: bp[nm(c, 'payer')] += c[on]
+            out.append(col([(k, v) for k, v in bp.most_common()], [40, 6]))
+        out.append('A visit that never got a claim in eCW is not in report 361.05, so it is not in these figures. The dashboard lists every line behind both numbers.')
     # 1 billed
     out += ['', '1. WHAT WAS BILLED LAST WEEK', '']
     pts = D.get('patientsByWeek', {}).get(wk)
@@ -77,16 +99,26 @@ def main():
     # 2 not billed
     out += ['', '2. WHAT WAS NOT BILLED FROM LAST WEEK\'S LOCKED ENCOUNTERS', '']
     locked0 = [c for c in W if c[M['billed']] == 0 and vs(c) in ('IV Locked', 'Check Out')]
-    if locked0:
+    if ow:
+        okk, onn, nm, cnt = ow['ok'], ow['on'], ow['nm'], ow['cnt']
+        lw = [c for c in ow['ub'] if c[0] == wk and not c[okk['unlocked']]]
+        cashw = [c for c in OW['cells'] if c[0] == wk and c[okk['nocharge']] and c[okk['cash']] and not c[okk['unlocked']]]
+        if OW['asOf'] < (monday + datetime.timedelta(days=4)).isoformat(): out.append(f'Not available for this week: the claim detail loaded is from {OW["asOf"]}.')
+        elif lw: out.append(f'{cnt(lw)} locked insurance claim' + ('s have' if cnt(lw) != 1 else ' has') + ' no charge entered: ' + '; '.join(f'{c[onn]} {nm(c, "visit")} ({nm(c, "payer")}, {nm(c, "resource")})' for c in lw) + '.')
+        else: out.append('Every locked insurance claim from last week has a charge entered.')
+        if cashw: out.append(f'{cnt(cashw)} cash-pay claims from last week have no charge in eCW (add-ons and program visits paid by card or RepeatMD); they are not counted as unbilled.')
+        oldu = [c for c in ow['ub'] if c[0] < wk]
+        out.append(f'Older unbilled insurance claims: {cnt(oldu)}.')
+    elif locked0:
         bv = collections.Counter(); br = collections.Counter(); bp = collections.Counter()
         for c in locked0: bv[visit(c)] += int(c[M['claims']]); br[res(c)] += int(c[M['claims']]); bp[payer(c)] += int(c[M['claims']])
         out.append(f'{n(locked0)} locked encounters have no charge entered: ' + ', '.join(f'{v} {k}' for k, v in bv.most_common()) + '. They sit on ' + ', '.join(f'{k} ({v})' for k, v in br.most_common()) + '. By payer: ' + ', '.join(f'{k} {v}' for k, v in bp.most_common()) + '.')
-    else: out.append('Every locked encounter from last week has a charge entered.')
+    elif not ow: out.append('Every locked encounter from last week has a charge entered.')
     older = [c for c in live if c[M['billed']] == 0 and vs(c) in ('IV Locked', 'Check Out') and c[K['week']] < wk and c[K['month']] >= '2025-09']
     ins_old = [c for c in older if payer(c) not in ('Patient', 'Self-Pay')]
     om = collections.Counter()
     for c in ins_old: om[c[K['month']]] += int(c[M['claims']])
-    out.append(f'Older locked encounters with no charge entered since Sep 2025: {n(older)}. {n(older) - n(ins_old)} are under the Patient payer (cash-pay and program visits paid through RepeatMD or cards, which never get a claim), so the ones to look at are the {n(ins_old)} under an insurance payer' + (': ' + ', '.join(f'{k} {v}' for k, v in sorted(om.items())) if ins_old else '') + '.')
+    if not ow: out.append(f'Older locked encounters with no charge entered since Sep 2025: {n(older)}. {n(older) - n(ins_old)} are under the Patient payer (cash-pay and program visits paid through RepeatMD or cards, which never get a claim), so the ones to look at are the {n(ins_old)} under an insurance payer' + (': ' + ', '.join(f'{k} {v}' for k, v in sorted(om.items())) if ins_old else '') + '.')
     # 3 collected
     out += ['', '3. TOTAL COLLECTED LAST WEEK, BY TYPE OF PAYMENT (cash that reached the bank)', '']
     bc = bank.get('cells', [])
@@ -130,14 +162,25 @@ def main():
     # 4 unlocked
     out += ['', '4. UNLOCKED NOTES, BY PERSON/TEAM', '']
     openw = [c for c in W if vs(c) not in ('IV Locked', 'Check Out')]
-    if openw:
+    if ow:
+        okk, onn, nm, cnt = ow['ok'], ow['on'], ow['nm'], ow['cnt']
+        uw = [c for c in ow['un'] if c[0] == wk]
+        if OW['asOf'] < (monday + datetime.timedelta(days=4)).isoformat(): out.append(f'Not available for this week: the claim detail loaded is from {OW["asOf"]}.')
+        elif uw:
+            by = collections.defaultdict(collections.Counter)
+            for c in uw: by[nm(c, 'resource')][nm(c, 'vstatus')] += c[onn]
+            out.append(f'From last week, {cnt(uw)} claim' + ('s are' if cnt(uw) != 1 else ' is') + ' still unlocked: ' + '; '.join(f'{r} {sum(v.values())} (' + ', '.join(f'{q} {k}' for k, q in v.most_common()) + ')' for r, v in sorted(by.items(), key=lambda x: -sum(x[1].values()))) + '.')
+        else: out.append('Every claim from last week is locked or checked out.')
+        oldun = [c for c in ow['un'] if c[0] < wk]
+        out.append(f'Older unlocked claims: {cnt(oldun)}, of which {cnt([c for c in oldun if not c[okk["nocharge"]]])} were billed anyway ({usd(sum(c[onn+1] for c in oldun))}), so most of that is status hygiene in eCW rather than unbilled work. The team breakdown is at the top of this email.')
+    elif openw:
         by = collections.defaultdict(collections.Counter)
         for c in openw: by[res(c)][vs(c)] += int(c[M['claims']])
         out.append(f'From last week, {n(openw)} encounter' + ('s are' if n(openw) != 1 else ' is') + ' still open: ' + '; '.join(f'{r} {sum(v.values())} (' + ', '.join(f'{s} {k}' for k, s in v.most_common()) + ')' for r, v in sorted(by.items(), key=lambda x: -sum(x[1].values()))) + '.')
-    else: out.append('Every encounter from last week is locked or checked out.')
+    elif not ow: out.append('Every encounter from last week is locked or checked out.')
     oldopen = [c for c in live if vs(c) not in ('IV Locked', 'Check Out') and c[K['week']] < wk]
     oldopen_billed = [c for c in oldopen if c[M['billed']] > 0]
-    out.append(f'Older encounters still in an open status: {n(oldopen)}, of which {n(oldopen_billed)} were billed anyway ({usd(billed(oldopen_billed))}), so most of that is status hygiene in eCW rather than unbilled work.')
+    if not ow: out.append(f'Older encounters still in an open status: {n(oldopen)}, of which {n(oldopen_billed)} were billed anyway ({usd(billed(oldopen_billed))}), so most of that is status hygiene in eCW rather than unbilled work.')
     # 5 volume
     out += ['', '5. VOLUME OF TREATMENTS, WEEK OVER WEEK (encounters, all statuses except cancelled and no-show)', '']
     fams = [f for f, _ in MODALITY] + ['Other']
