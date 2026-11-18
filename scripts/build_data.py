@@ -317,8 +317,11 @@ def main():
         c[5] += r[COLS["contractual"]] or 0
         c[6] += r[COLS["writeoff"]] or 0
         c[7] += ar
-        c[8] += ar if ar > 0 else 0
-        c[9] += ar if ar < 0 else 0
+        # Open balance is the claim's net across its rows (insurer row +, patient-payment row -), booked once on the primary row.
+        if id(r) in primary:
+            net = sum(x[COLS["ar"]] or 0 for x in by_claim[r[COLS["claimno"]]])
+            c[8] += net if net > 0 else 0
+            c[9] += net if net < 0 else 0
         pid = r[COLS["acct"]]
         pts_overall.add(pid)
         pts_payer[key[1]].add(pid)
