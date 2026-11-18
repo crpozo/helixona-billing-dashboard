@@ -317,11 +317,15 @@ def main():
         c[5] += r[COLS["contractual"]] or 0
         c[6] += r[COLS["writeoff"]] or 0
         c[7] += ar
-        # Open balance is the claim's net across its rows (insurer row +, patient-payment row -), booked once on the primary row.
-        if id(r) in primary:
-            net = sum(x[COLS["ar"]] or 0 for x in by_claim[r[COLS["claimno"]]])
-            c[8] += net if net > 0 else 0
-            c[9] += net if net < 0 else 0
+        # Open balance is the claim's net across its rows (insurer row +, patient-payment row -).
+        # A positive net is shared among the rows that hold a positive balance (so insurer vs. patient stays right);
+        # a net credit is booked on the primary row.
+        rs_ = by_claim[r[COLS["claimno"]]]
+        net = sum(x[COLS["ar"]] or 0 for x in rs_)
+        if net > 0 and ar > 0:
+            c[8] += net * ar / sum((x[COLS["ar"]] or 0) for x in rs_ if (x[COLS["ar"]] or 0) > 0)
+        elif net < 0 and id(r) in primary:
+            c[9] += net
         pid = r[COLS["acct"]]
         pts_overall.add(pid)
         pts_payer[key[1]].add(pid)
